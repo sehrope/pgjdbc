@@ -17,6 +17,7 @@ import org.postgresql.copy.CopyOut;
 import org.postgresql.copy.PGCopyOutputStream;
 import org.postgresql.core.ServerVersion;
 import org.postgresql.test.TestUtil;
+import org.postgresql.util.CopyNotSupportedException;
 import org.postgresql.util.PSQLState;
 
 import org.junit.After;
@@ -267,7 +268,7 @@ public class CopyTest {
     try {
       stmt.execute("COPY copytest FROM STDIN");
       fail("Should have failed because copy doesn't work from a Statement.");
-    } catch (SQLException sqle) {
+    } catch (CopyNotSupportedException sqle) {
     }
     stmt.close();
 
@@ -282,7 +283,7 @@ public class CopyTest {
     try {
       stmt.execute("COPY copytest TO STDOUT");
       fail("Should have failed because copy doesn't work from a Statement.");
-    } catch (SQLException sqle) {
+    } catch (CopyNotSupportedException sqle) {
     }
     stmt.close();
 

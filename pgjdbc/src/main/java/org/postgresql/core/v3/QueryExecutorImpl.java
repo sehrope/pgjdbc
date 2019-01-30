@@ -36,6 +36,7 @@ import org.postgresql.core.v3.replication.V3ReplicationProtocol;
 import org.postgresql.jdbc.AutoSave;
 import org.postgresql.jdbc.BatchResultHandler;
 import org.postgresql.jdbc.TimestampUtils;
+import org.postgresql.util.CopyNotSupportedException;
 import org.postgresql.util.GT;
 import org.postgresql.util.PSQLException;
 import org.postgresql.util.PSQLState;
@@ -2315,7 +2316,7 @@ public class QueryExecutorImpl extends QueryExecutorBase {
           // In case of CopyOutResponse, we cannot abort data transfer,
           // so just throw an error and ignore CopyData messages
           handler.handleError(
-              new PSQLException(GT.tr(COPY_ERROR_MESSAGE),
+              new CopyNotSupportedException(GT.tr(COPY_ERROR_MESSAGE),
                   PSQLState.NOT_IMPLEMENTED));
           break;
 
@@ -2437,7 +2438,13 @@ public class QueryExecutorImpl extends QueryExecutorBase {
       LOGGER.log(Level.FINEST, " <=BE ErrorMessage({0})", errorMsg.toString());
     }
 
-    PSQLException error = new PSQLException(errorMsg);
+    PSQLException error;
+    if (errorMsg.getMessage() != null && errorMsg.getMessage().endsWith(COPY_ERROR_MESSAGE)) {
+      error = new CopyNotSupportedException(errorMsg);
+    } else {
+      error = new PSQLException(errorMsg);
+    }
+
     if (transactionFailCause == null) {
       transactionFailCause = error;
     } else {
