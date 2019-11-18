@@ -103,7 +103,7 @@ public class PgStatement implements Statement, BaseStatement {
   /**
    * Maximum number of rows to return, 0 = unlimited.
    */
-  protected int maxrows = 0;
+  protected int maxRows = 0;
 
   /**
    * Number of rows to get in a batch.
@@ -441,7 +441,7 @@ public class PgStatement implements Statement, BaseStatement {
     }
     try {
       startTimer();
-      connection.getQueryExecutor().execute(queryToExecute, queryParameters, handler, maxrows,
+      connection.getQueryExecutor().execute(queryToExecute, queryParameters, handler, maxRows,
           fetchSize, flags);
     } finally {
       killTimerTask();
@@ -504,7 +504,7 @@ public class PgStatement implements Statement, BaseStatement {
 
   public int getMaxRows() throws SQLException {
     checkClosed();
-    return maxrows;
+    return maxRows;
   }
 
   public void setMaxRows(int max) throws SQLException {
@@ -514,7 +514,7 @@ public class PgStatement implements Statement, BaseStatement {
           GT.tr("Maximum number of rows must be a value grater than or equal to 0."),
           PSQLState.INVALID_PARAMETER_VALUE);
     }
-    maxrows = max;
+    maxRows = max;
   }
 
   public void setEscapeProcessing(boolean enable) throws SQLException {
@@ -841,7 +841,7 @@ public class PgStatement implements Statement, BaseStatement {
 
     try {
       startTimer();
-      connection.getQueryExecutor().execute(queries, parameterLists, handler, maxrows, fetchSize,
+      connection.getQueryExecutor().execute(queries, parameterLists, handler, maxRows, fetchSize,
           flags);
     } finally {
       killTimerTask();
