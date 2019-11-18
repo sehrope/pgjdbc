@@ -938,6 +938,30 @@ public class TestUtil {
   }
 
   /**
+   * Execute a SQL query with a given connection, fetch all rows via rs.next(), and
+   * return back how many rows were fetched. No column data is fetched via getXyz().
+   */
+  public static int executeQueryAndCountRows(Connection conn, String sql) throws SQLException {
+    try (Statement stmt = conn.createStatement()) {
+      return executeQueryAndCountRows(stmt, sql);
+    }
+  }
+
+  /**
+   * Execute a SQL query with a given connection, fetch all rows via rs.next(), and
+   * return back how many rows were fetched. No column data is fetched via getXyz().
+   */
+  public static int executeQueryAndCountRows(Statement stmt, String sql) throws SQLException {
+    int count = 0;
+    try (ResultSet rs = stmt.executeQuery(sql)) {
+      while (rs.next()) {
+        count += 1;
+      }
+    }
+    return count;
+  }
+
+  /**
    * Retrieve the backend process id for a given connection.
    */
   public static int getBackendPid(Connection conn) throws SQLException {
