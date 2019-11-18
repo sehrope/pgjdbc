@@ -136,7 +136,7 @@ public interface QueryExecutor extends TypeTransferModeRegistry {
    * @param flags a combination of QUERY_* flags indicating how to handle the query.
    * @throws SQLException if query execution fails
    */
-  void execute(Query query, ParameterList parameters, ResultHandler handler, int maxRows,
+  void execute(Query query, ParameterList parameters, ResultHandler handler, long maxRows,
       int fetchSize, int flags) throws SQLException;
 
   /**
@@ -156,7 +156,7 @@ public interface QueryExecutor extends TypeTransferModeRegistry {
    * @param flags a combination of QUERY_* flags indicating how to handle the query.
    * @throws SQLException if query execution fails
    */
-  void execute(Query[] queries, ParameterList[] parameterLists, BatchResultHandler handler, int maxRows,
+  void execute(Query[] queries, ParameterList[] parameterLists, BatchResultHandler handler, long maxRows,
       int fetchSize, int flags) throws SQLException;
 
   /**

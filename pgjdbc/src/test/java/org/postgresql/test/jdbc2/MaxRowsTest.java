@@ -82,4 +82,53 @@ public class MaxRowsTest {
     }
     assertEquals("Value for maxRows should be unchanged from default of zero", 0, stmt.getMaxRows());
   }
+
+  @Test
+  public void testLargeWithExplicitZeroMaxRows() throws SQLException {
+    stmt.setLargeMaxRows(0);
+    assertEquals("Value for maxRows should be zero", 0, stmt.getMaxRows());
+    assertEquals("Value for largeMaxRows should be zero", 0, stmt.getLargeMaxRows());
+    int count = TestUtil.executeQueryAndCountRows(stmt, ONE_HUNDRED_ROW_SQL);
+    assertEquals("Result should fetch all the rows", 100, count);
+  }
+
+  @Test
+  public void testLargeWithLessThanAllTheRows() throws SQLException {
+    int maxRows = 25;
+    stmt.setLargeMaxRows(maxRows);
+    assertEquals("Value for maxRows should be updated value", maxRows, stmt.getMaxRows());
+    assertEquals("Value for largeMaxRows should be updated value", maxRows, stmt.getLargeMaxRows());
+    int count = TestUtil.executeQueryAndCountRows(stmt, ONE_HUNDRED_ROW_SQL);
+    assertEquals("Result should fetch only " + maxRows + " rows", maxRows, count);
+  }
+
+  @Test
+  public void testLargeWithMoreThanAllTheRows() throws SQLException {
+    long maxRows = 200;
+    stmt.setLargeMaxRows(maxRows);
+    int count = TestUtil.executeQueryAndCountRows(stmt, ONE_HUNDRED_ROW_SQL);
+    assertEquals("Result should fetch all the rows", 100, count);
+  }
+
+  @Test
+  public void testLargeWithBadNegativeValue() throws SQLException {
+    try {
+      stmt.setLargeMaxRows(-123);
+      fail("Expected an exception to be thrown for invalid maxRows value");
+    } catch (SQLException e) {
+      assertEquals("SQL State should indicate an invalid parameter value", e.getSQLState(),
+          PSQLState.INVALID_PARAMETER_VALUE.getState());
+    }
+    assertEquals("Value for maxRows should be unchanged from default of zero", 0, stmt.getMaxRows());
+  }
+
+  @Test
+  public void testLargeWithValueBiggerThanInt() throws SQLException {
+    long maxRows = ((long)Integer.MAX_VALUE) + 12345;
+    stmt.setLargeMaxRows(maxRows);
+    assertEquals("Value for maxRows should be zero as it exceeds int max value", 0, stmt.getMaxRows());
+    assertEquals("Value for largeMaxRows should be updated", maxRows, stmt.getLargeMaxRows());
+    int count = TestUtil.executeQueryAndCountRows(stmt, ONE_HUNDRED_ROW_SQL);
+    assertEquals("Result should fetch all the rows", 100, count);
+  }
 }

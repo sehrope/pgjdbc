@@ -272,7 +272,7 @@ public class QueryExecutorImpl extends QueryExecutorBase {
   }
 
   public synchronized void execute(Query query, ParameterList parameters, ResultHandler handler,
-      int maxRows, int fetchSize, int flags) throws SQLException {
+      long maxRows, int fetchSize, int flags) throws SQLException {
     waitOnLock();
     if (LOGGER.isLoggable(Level.FINEST)) {
       LOGGER.log(Level.FINEST, "  simple execute, handler={0}, maxRows={1}, fetchSize={2}, flags={3}",
@@ -460,7 +460,7 @@ public class QueryExecutorImpl extends QueryExecutorBase {
   private static final int NODATA_QUERY_RESPONSE_SIZE_BYTES = 250;
 
   public synchronized void execute(Query[] queries, ParameterList[] parameterLists,
-      BatchResultHandler batchHandler, int maxRows, int fetchSize, int flags) throws SQLException {
+      BatchResultHandler batchHandler, long maxRows, int fetchSize, int flags) throws SQLException {
     waitOnLock();
     if (LOGGER.isLoggable(Level.FINEST)) {
       LOGGER.log(Level.FINEST, "  batch execute {0} queries, handler={1}, maxRows={2}, fetchSize={3}, flags={4}",
@@ -1364,7 +1364,7 @@ public class QueryExecutorImpl extends QueryExecutorBase {
   /*
    * Send a query to the backend.
    */
-  private void sendQuery(Query query, V3ParameterList parameters, int maxRows, int fetchSize,
+  private void sendQuery(Query query, V3ParameterList parameters, long maxRows, int fetchSize,
       int flags, ResultHandler resultHandler,
       BatchResultHandler batchHandler) throws IOException, SQLException {
     // Now the query itself.
@@ -1772,7 +1772,7 @@ public class QueryExecutorImpl extends QueryExecutorBase {
   // (above repeats once per call to sendOneQuery)
   // Sync (sent by caller)
   //
-  private void sendOneQuery(SimpleQuery query, SimpleParameterList params, int maxRows,
+  private void sendOneQuery(SimpleQuery query, SimpleParameterList params, long maxRows,
       int fetchSize, int flags) throws IOException {
     boolean asSimple = (flags & QueryExecutor.QUERY_EXECUTE_AS_SIMPLE) != 0;
     if (asSimple) {
@@ -1810,10 +1810,16 @@ public class QueryExecutorImpl extends QueryExecutorBase {
     if (noResults) {
       rows = 1; // We're discarding any results anyway, so limit data transfer to a minimum
     } else if (!usePortal) {
-      rows = maxRows; // Not using a portal -- fetchSize is irrelevant
+      // Not using a portal -- fetchSize is irrelevant
+      if (maxRows >= 0 && maxRows <= Integer.MAX_VALUE) {
+        rows = (int) maxRows;
+      } else {
+        // Execute message supports at most 32-bit so large values must fetch everything
+        rows = 0;
+      }
     } else if (maxRows != 0 && fetchSize > maxRows) {
       // fetchSize > maxRows, use maxRows (nb: fetchSize cannot be 0 if usePortal == true)
-      rows = maxRows;
+      rows = (int) maxRows; // NOTE: This is a safe cast as fetchSize is an integer
     } else {
       rows = fetchSize; // maxRows > fetchSize
     }

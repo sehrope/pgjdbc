@@ -5,7 +5,6 @@
 
 package org.postgresql.jdbc;
 
-import org.postgresql.Driver;
 import org.postgresql.core.BaseConnection;
 import org.postgresql.core.BaseStatement;
 import org.postgresql.core.CachedQuery;
@@ -103,7 +102,7 @@ public class PgStatement implements Statement, BaseStatement {
   /**
    * Maximum number of rows to return, 0 = unlimited.
    */
-  protected int maxRows = 0;
+  protected long maxRows = 0;
 
   /**
    * Number of rows to get in a batch.
@@ -504,7 +503,10 @@ public class PgStatement implements Statement, BaseStatement {
 
   public int getMaxRows() throws SQLException {
     checkClosed();
-    return maxRows;
+    if (maxRows > 0 && maxRows <= Integer.MAX_VALUE) {
+      return (int) maxRows;
+    }
+    return 0;
   }
 
   public void setMaxRows(int max) throws SQLException {
@@ -1027,11 +1029,18 @@ public class PgStatement implements Statement, BaseStatement {
   }
 
   public void setLargeMaxRows(long max) throws SQLException {
-    throw Driver.notImplemented(this.getClass(), "setLargeMaxRows");
+    checkClosed();
+    if (max < 0) {
+      throw new PSQLException(
+          GT.tr("Maximum number of rows must be a value grater than or equal to 0."),
+          PSQLState.INVALID_PARAMETER_VALUE);
+    }
+    this.maxRows = max;
   }
 
   public long getLargeMaxRows() throws SQLException {
-    throw Driver.notImplemented(this.getClass(), "getLargeMaxRows");
+    checkClosed();
+    return this.maxRows;
   }
 
   @Override
