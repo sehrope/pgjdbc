@@ -71,6 +71,7 @@ import org.junit.runners.Suite;
     LoginTimeoutTest.class,
     LogServerMessagePropertyTest.class,
     LruCacheTest.class,
+    MaxRowsTest.class,
     MiscTest.class,
     NativeQueryBindLengthTest.class,
     NotifyTest.class,
