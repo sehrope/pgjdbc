@@ -230,28 +230,33 @@ public class TestUtil {
 
   private static boolean initialized = false;
 
-  public static Properties loadPropertyFiles(String... names) {
-    Properties p = new Properties();
-    for (String name : names) {
-      for (int i = 0; i < 2; i++) {
-        // load x.properties, then x.local.properties
-        if (i == 1 && name.endsWith(".properties") && !name.endsWith(".local.properties")) {
-          name = name.replaceAll("\\.properties$", ".local.properties");
-        }
-        File f = getFile(name);
-        if (!f.exists()) {
-          System.out.println("Configuration file " + f.getAbsolutePath()
-              + " does not exist. Consider adding it to specify test db host and login");
-          continue;
-        }
-        try {
-          p.load(new FileInputStream(f));
-        } catch (IOException ex) {
-          // ignore
-        }
-      }
+  private static void loadPropertyFile(Properties props, String name) throws IOException {
+    File file = getFile(name);
+    if (!file.exists()) {
+      System.out.println("Configuration file " + file.getAbsolutePath()
+          + " does not exist. Consider adding it to specify test db host and login");
+      return;
     }
-    return p;
+    FileInputStream in = new FileInputStream(file);
+    try {
+      props.load(in);
+    } finally {
+      in.close();
+    }
+  }
+
+  public static Properties loadPropertyFiles(String name) {
+    try {
+      Properties props = new Properties();
+      loadPropertyFile(props, name);
+      if (name.endsWith(".properties") && !name.endsWith(".local.properties")) {
+        String localName = name.replaceAll("\\.properties$", ".local.properties");
+        loadPropertyFile(props, localName);
+      }
+      return props;
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   public static void initDriver() {
