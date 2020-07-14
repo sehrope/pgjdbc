@@ -413,7 +413,6 @@ public class ConnectionFactoryImpl extends ConnectionFactory {
       // start with plain text and let the server request it
       return pgStream;
     }
-    System.err.println("GSS Encode Mode: " + gssEncMode.value);
 
     String password = PGProperty.PASSWORD.get(info);
     LOGGER.log(Level.FINEST, " FE=> GSSENCRequest");
