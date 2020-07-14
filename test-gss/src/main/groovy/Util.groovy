@@ -9,8 +9,8 @@ public class Util {
         s.close()
         return port
     }
-    public static void appendToFile(String fileName, String text, truncate=false) {
 
+    public static void appendToFile(String fileName, String text, truncate=false) {
         new File(fileName).with() { f ->
             if ( truncate ) {
                 FileChannel outChannel = new FileOutputStream(f, true).getChannel()

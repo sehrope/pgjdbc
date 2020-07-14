@@ -27,7 +27,6 @@ public class PgJDBC {
         }else if (value instanceof Boolean ) {
             pgProperty.set(properties, (Boolean)value)
         }
-
     }
 
     public void tryConnect(String dataBase, String host, int port, String user, String password) {
@@ -61,6 +60,7 @@ public class PgJDBC {
         }
         conn.close()
     }
+
     public static void main(String[] args ){
         PgJDBC pgJDBC = new PgJDBC()
         pgJDBC.tryConnect("test", "localhost", 5432, "test", "test")

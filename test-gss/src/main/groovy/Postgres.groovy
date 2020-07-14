@@ -41,7 +41,6 @@ class Postgres {
                 println exec
                 p = exec.execute(environment, null)
                 p.waitForProcessOutput(System.out, System.err)
-
             }
         }.start()
         while (p == null){
@@ -62,18 +61,23 @@ class Postgres {
         }
         return false
     }
+
     public void writePgHBA(String text) {
         Util.appendToFile("$dataPath/pg_hba.conf", text, true)
     }
+
     public void writePgConf(String text) {
         Util.appendToFile("$dataPath/postgresql.conf", text, false)
     }
+
     public void setKeyTabLocation(String location) {
         writePgConf("krb_server_keyfile = '$location'")
     }
+
     public void enableGSS(String hostAddress, String mode, String options) {
         writePgHBA("$mode all all $hostAddress/32 gss map=mymap")
     }
+
     public void enableMyMap(String realm) {
         writePgIdent("mymap  /^(.*)@$realm\$  \\1");
     }

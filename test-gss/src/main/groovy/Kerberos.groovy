@@ -27,6 +27,7 @@ class Kerberos {
     public String[] getEnvironment() {
         return env
     }
+
     public void getBinDir() {
         String osName = "uname -s".execute().text
 
@@ -60,8 +61,6 @@ class Kerberos {
             kadminLocal = "$krb5SbinDir/$kadminLocal"
             krb5kdc     = "$krb5SbinDir/$krb5kdc"
         }
-
-
 
         krb5Conf   = "$testLib/tmp_check/krb5.conf"
         kdcConf    = "$testLib/tmp_check/kdc.conf"
@@ -115,7 +114,6 @@ default_realm = $realm
 
         Util.appendToFile( kdcConf,"[kdcdefaults]")
 
-
         // For new-enough versions of krb5, use the _listen settings rather
         // than the _ports settings so that we can bind to localhost only.
 
@@ -148,7 +146,6 @@ $realm = {
 
     }
     public Process runKerberos() {
-
         mkdir(kdcDataDir)
 
         env = ["KRB5_CONFIG=$krb5Conf", "KRB5_KDC_PROFILE=$kdcConf"]
@@ -179,12 +176,9 @@ $realm = {
             Thread.sleep(100)
         }
         return krb5Process
-
     }
     
-
     public void mkdir(String newDir){
-
         new File(newDir).with {dir->
             if ( dir.exists() ){
                 dir.deleteDir()
@@ -193,6 +187,7 @@ $realm = {
             dir.deleteOnExit()
         }
     }
+
     public void destroy() {
         new File(kdcPidfile).with {f->
             Process p = "kill -TERM ${f.text}".execute()
@@ -227,6 +222,7 @@ $realm = {
             println l
         }
     }
+
     public static void main(String []args) {
         Kerberos kerberos = new Kerberos()
         kerberos.getBinDir()
