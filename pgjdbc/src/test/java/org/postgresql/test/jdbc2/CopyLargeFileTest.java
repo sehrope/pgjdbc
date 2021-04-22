@@ -10,16 +10,15 @@ import static org.junit.Assert.assertEquals;
 import org.postgresql.PGConnection;
 import org.postgresql.copy.CopyManager;
 import org.postgresql.test.TestUtil;
-import org.postgresql.test.util.BufferGenerator;
 import org.postgresql.test.util.StrangeInputStream;
+import org.postgresql.util.VirtualInputStream;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -49,7 +48,6 @@ public class CopyLargeFileTest {
             + "value DOUBLE PRECISION NOT NULL");
 
     feedTable();
-    BufferGenerator.main(new String[]{});
     copyAPI = ((PGConnection) con).getCopyAPI();
   }
 
@@ -74,7 +72,6 @@ public class CopyLargeFileTest {
     try {
       TestUtil.dropTable(con, "pgjdbc_issue366_test_data");
       TestUtil.dropTable(con, "pgjdbc_issue366_test_glossary");
-      new File("target/buffer.txt").delete();
     } finally {
       con.close();
     }
@@ -87,7 +84,6 @@ public class CopyLargeFileTest {
       cleanupTable(con);
     }
   }
-
   private void feedTableAndCheckTableFeedIsOk(Connection conn) throws Throwable {
     Long seed = Long.getLong("StrangeInputStream.seed");
     if (seed == null) {
@@ -95,10 +91,25 @@ public class CopyLargeFileTest {
     }
     InputStream in = null;
     try {
-      in = new StrangeInputStream(new FileInputStream("target/buffer.txt"), seed);
+      long ROW_COUNT = 100000;
+      Random random = new Random(System.currentTimeMillis());
+      in = new StrangeInputStream(new VirtualInputStream(i -> {
+        if (i >= ROW_COUNT) {
+          return null;
+        }
+
+        StringBuilder line = new StringBuilder();
+        line.append("VERY_LONG_LINE_TO_ASSIST_IN_DETECTION_OF_ISSUE_366_#_").append(i).append('\t');
+        int letter = random.nextInt(26); // don't really care about uniformity for a test
+        char character = (char) ((int) 'A' + letter); // black magic
+        line.append("VERY_LONG_STRING_TO_REPRODUCE_ISSUE_366_").append(character).append(character);
+        line.append(character).append('\t').append(random.nextDouble()).append('\n');
+
+        return line.toString().getBytes(StandardCharsets.UTF_8);
+      }), seed);
       long size = copyAPI.copyIn(
           "COPY pgjdbc_issue366_test_data(data_text_id, glossary_text_id, value) FROM STDIN", in);
-      assertEquals(BufferGenerator.ROW_COUNT, size);
+      assertEquals(ROW_COUNT, size);
     } catch (Throwable t) {
       String message = "Using seed = " + seed + " for StrangeInputStream. Set -DStrangeInputStream.seed="
           + seed + " to reproduce the test";
