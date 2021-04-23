@@ -1,0 +1,94 @@
+name: Auto CI
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+
+jobs:
+  matrix_prep:
+    name: Matrix Preparation
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+    - id: set-matrix
+      run: |
+        node -p "
+          '::set-output name=matrix::' + JSON.stringify({
+            jdk: [
+              8,
+              11,
+            ],
+            pg_version: [
+              '8.4',
+              '9.0',
+              '9.1',
+              '9.2',
+              '9.3',
+              '9.4',
+              '9.5',
+              '9.6',
+              '10',
+              '11',
+              '12',
+              '13',
+            ],
+          })"
+
+  build-test:
+    name: 'Test - Ubuntu / PG v${{ matrix.pg_version }} / JDK ${{ matrix.jdk }}'
+    runs-on: 'ubuntu-latest'
+    needs: matrix_prep
+    strategy:
+      fail-fast: false
+      matrix:
+        jdk:
+          - '8'
+          - '11'
+        pg_version:
+          - '8.4'
+          - '9.0'
+          - '9.1'
+          - '9.2'
+          - '9.3'
+          - '9.4'
+          - '9.5'
+          - '9.6'
+          - '10'
+          - '11'
+          - '12'
+          - '13'
+    env:
+      ACTIONS_STEP_DEBUG: true
+      ACTIONS_RUNNER_DEBUG: true
+      ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 50
+    - name: Start PostgreSQL
+      working-directory: docker
+      run: docker-compose up -d && docker-compose logs
+      env:
+        PGV: ${{ matrix.pg_version }}
+    - name: 'Set up JDK ${{ matrix.jdk }}'
+      uses: actions/setup-java@v1
+      with:
+        java-version: ${{ matrix.jdk }}
+        architecture: x64
+    - name: Prepare ssltest.local.properties
+      run: echo enable_ssl_tests=true > ssltest.local.properties
+    - name: Test psql
+      run: psql -c 'SELECT version()'
+    - uses: burrunan/gradle-cache-action@v1
+      name: Test
+      env:
+        S3_BUILD_CACHE_ACCESS_KEY_ID: ${{ secrets.S3_BUILD_CACHE_ACCESS_KEY_ID }}
+        S3_BUILD_CACHE_SECRET_KEY: ${{ secrets.S3_BUILD_CACHE_SECRET_KEY }}
+      with:
+        read-only: ${{ matrix.os == 'self-hosted' }}
+        job-id: jdk${{ matrix.jdk }}_pg${{ matrix.pg_version}}
+        arguments: --scan --no-parallel --no-daemon jandex test
+        properties: |
+          skipReplicationTests=
+          port=${{ job.services.postgres.ports['5432'] }}
