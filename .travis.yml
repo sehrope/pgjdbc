@@ -40,6 +40,7 @@ before_script:
   - test "x$PG_VERSION" == 'x' || test "x$NO_HSTORE" == 'xY' || psql test -c 'CREATE EXTENSION hstore;' -U postgres
   - test "x$PG_VERSION" == 'x' || test "x$CREATE_PLPGSQL" == 'x' || createlang -U postgres plpgsql test
   - test "x$PG_VERSION" == 'x' || test "x$PLPGSQL_EXTENSION" == 'x' || psql test -c 'CREATE EXTENSION IF NOT EXISTS plpgsql;' -U postgres
+  - psql -c "ALTER USER postgres PASSWORD 'test'" && echo 'privilegedPassword=test'>>build.local.properties
 
 env:
   global:
