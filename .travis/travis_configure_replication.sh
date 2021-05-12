@@ -26,6 +26,8 @@ then
         then
             set_conf_property "wal_level" "logical"
             set_conf_property "max_replication_slots" "10"
+
+            sudo sh -c "echo -n 'host replication all all trust' >> ${PG_DATADIR}/pg_hba.conf"
         fi
     fi
 fi
