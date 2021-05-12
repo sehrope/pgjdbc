@@ -18,23 +18,18 @@ else
     wget --quiet -O - https://apt.postgresql.org/pub/repos/apt/ACCC4CF8.asc | sudo apt-key add -
     sudo apt-get update
     sudo apt-get -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confnew" install postgresql-${PG_VERSION} postgresql-contrib-${PG_VERSION} -qq
-
-    sudo sh -c "echo 'local all all trust' > /etc/postgresql/${PG_VERSION}/main/pg_hba.conf"
-    if [ ${PG_VERSION} -ge '10' ]
-    then
-        sudo sh -c "echo 'host all testscram all scram-sha-256' >> /etc/postgresql/${PG_VERSION}/main/pg_hba.conf"
-    fi
-    sudo sh -c "echo -n 'host all all 127.0.0.1/32 trust' >> /etc/postgresql/${PG_VERSION}/main/pg_hba.conf"
-
     if [ ${PG_VERSION} = '8.4' ]
     then
       sudo sed -i -e 's/port = 5433/port = 5432/g' /etc/postgresql/8.4/main/postgresql.conf
     fi
-
-    sudo service postgresql restart ${PG_VERSION}
-    sudo tail /var/log/postgresql/postgresql-${PG_VERSION}-main.log
   fi
+
+  sudo sh -c "./.travis/travis_gen_hba.sh > /etc/postgresql/${PG_VERSION}/main/pg_hba.conf"
+
   echo "BEGIN === pg_hba.conf"
   sudo cat /etc/postgresql/${PG_VERSION}/main/pg_hba.conf
   echo "END === pg_hba.conf"
+
+  sudo service postgresql restart ${PG_VERSION}
+  sudo tail /var/log/postgresql/postgresql-${PG_VERSION}-main.log
 fi
