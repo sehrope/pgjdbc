@@ -8,8 +8,9 @@ then
 elif [ "${PG_VERSION}" = "HEAD" ]
 then
     ./.travis/travis_install_head_postgres.sh
-elif [ ! -d "${PG_DATADIR}" ]
-then
+else
+  if [ ! -d "${PG_DATADIR}" ]
+  then
     sudo apt-get remove postgresql libpq-dev libpq5 postgresql-client-common postgresql-common -qq --purge
     source /etc/lsb-release
     echo "deb http://apt-archive.postgresql.org/pub/repos/apt/ $DISTRIB_CODENAME-pgdg-archive main ${PG_VERSION}" > pgdg.list
@@ -32,4 +33,8 @@ then
 
     sudo service postgresql restart ${PG_VERSION}
     sudo tail /var/log/postgresql/postgresql-${PG_VERSION}-main.log
+  fi
+  echo "BEGIN === pg_hba.conf"
+  sudo cat /etc/postgresql/${PG_VERSION}/main/pg_hba.conf
+  echo "END === pg_hba.conf"
 fi
