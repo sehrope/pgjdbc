@@ -1,6 +1,6 @@
 sudo: false
 language: java
-dist: trusty
+dist: bionic
 
 branches:
   except:
