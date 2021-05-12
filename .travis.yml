@@ -85,6 +85,10 @@ cache:
 
 matrix:
   fast_finish: true
+  allow_failures:
+    - jdk: openjdk-ea
+    - env: PG_VERSION=HEAD
+    - env: REPLICATION=Y
   include:
     - stage: test
       env:
