@@ -20,6 +20,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
 - Use SASLprep normalization for SCRAM authentication [PR #2052](https://github.com/pgjdbc/pgjdbc/pull/2052)
 - Fix DatabaseMetaData.getTablePrivileges() to include views, materialized views, and foreign tables [PR #2049](https://github.com/pgjdbc/pgjdbc/pull/2049)
 - DatabaseMetaData.getTables returns columns in UPPER case as per the spec [PR #2092](https://github.com/pgjdbc/pgjdbc/pull/2092) fixes Issue #830
+- Fix "Avoid leaking server error details through BatchUpdateException when logServerErrorDetail=false" [PR #2148](https://github.com/pgjdbc/pgjdbc/pull/2148) fixes Issue #2147
+
 ## [42.2.18]
 ### Fixed
 - Unfortunately changing the default of gssEncMode to ALLOW was not enough. The GSSEncMode Enum was not changed as well

@@ -959,5 +959,9 @@ public abstract class AbstractArraysTest<A> {
       throw new UnsupportedOperationException();
     }
 
+    @Override
+    public boolean getLogServerErrorDetail() {
+        return false;
+    }
   }
 }
