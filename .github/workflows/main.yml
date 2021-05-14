@@ -119,7 +119,7 @@ jobs:
       with:
         fetch-depth: 50
     - name: Start PostgreSQL
-      working-directory: docker
+      working-directory: docker/postgres-server
       run: docker-compose up -d && docker-compose logs
 
     - name: 'Get test node ARCH'
@@ -188,7 +188,7 @@ jobs:
         with:
           fetch-depth: 50
       - name: Start PostgreSQL
-        working-directory: docker
+        working-directory: docker/postgres-server
         run: docker-compose up -d && docker-compose logs
       - name: 'Set up JDK 11'
         if: ${{ steps.get_arch_name.outputs.arch_name != 'aarch64' }}
