@@ -326,7 +326,11 @@ public class TestUtil {
     PGProperty.PREFER_QUERY_MODE.set(properties, "simple");
     properties.setProperty("username", TestUtil.getPrivilegedUser());
     properties.setProperty("password", TestUtil.getPrivilegedPassword());
-    return TestUtil.openDB(properties);
+    Connection conn = TestUtil.openDB(properties);
+    execute("SET synchronous_commit = on", conn);
+    execute("BEGIN", conn);
+    execute("COMMIT", conn);
+    return conn;
   }
 
   /**

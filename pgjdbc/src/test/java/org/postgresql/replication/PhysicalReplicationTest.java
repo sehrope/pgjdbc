@@ -47,7 +47,9 @@ public class PhysicalReplicationTest {
   @Before
   public void setUp() throws Exception {
     sqlConnection = TestUtil.openPrivilegedDB();
-    //DriverManager.setLogWriter(new PrintWriter(System.out));
+    TestUtil.execute("SET synchronous_commit = on", sqlConnection);
+    TestUtil.execute("BEGIN", sqlConnection);
+    TestUtil.execute("COMMIT", sqlConnection);
     replConnection = TestUtil.openReplicationConnection();
     TestUtil.createTable(sqlConnection, "test_physic_table",
         "pk serial primary key, name varchar(100)");
