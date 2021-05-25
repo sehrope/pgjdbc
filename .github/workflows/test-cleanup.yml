@@ -1,0 +1,35 @@
+name: Test Cleanup
+
+on:
+  push:
+    branches:
+      - '*'
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+      - 'appveyor.xml'
+
+jobs:
+  test-always:
+    name: Testing always logic
+    runs-on: ubuntu-latest
+    env:
+      ACTIONS_STEP_DEBUG: true
+      ACTIONS_RUNNER_DEBUG: true
+    steps:
+    - name: Do something
+      run: |
+        echo Foo
+    - name: Do something else
+      run: |
+        echo Bar
+    - name: Fail something
+      run: |
+        false
+    - name: Hopefully clean up
+      if: always()
+      run: |
+        echo "Cleanup goes here"
+    - name: This should not run
+      run: |
+        echo Baz
