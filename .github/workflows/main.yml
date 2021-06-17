@@ -138,6 +138,8 @@ jobs:
     - name: Start PostgreSQL
       working-directory: docker/postgres-server
       run: |
+        find ../
+        docker-compose --version
         docker-compose down -v --rmi local || true
         sed -i -r '/- (543[3-4]):\1/d' docker-compose.yml
         docker-compose up -d
