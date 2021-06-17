@@ -47,6 +47,11 @@ public class DriverTest {
     assertNull(driver.connect("jdbc:otherdb:database", new Properties()));
   }
 
+  @Test
+  public void dummyPlaceholder() {
+    System.err.println("TODO: Remove this");
+  }
+
   /**
    * According to the javadoc of java.sql.Driver.connect(...), calling abort when the {@code executor} is {@code null}
    * results in SQLException
