@@ -142,6 +142,19 @@ jobs:
         sed -i -r '/- (543[3-4]):\1/d' docker-compose.yml
         docker-compose up -d
         docker-compose logs
+    - name: PostgreSQL version
+      env:
+        PGUSER: postgres
+        PGDATABASE: postgres
+        PGHOST: localhost
+      run: |
+        if ! docker/bin/wait_for_pg_isready; then
+            # Server is not online so dump some logs for debugging
+            docker ps
+            cd docker/postgres-server
+            docker-compose logs
+        fi
+        psql -c 'SELECT version()'
     - name: 'Get test node ARCH'
       run: echo "::set-output name=arch_name::$(uname -i)"
       id: get_arch_name
