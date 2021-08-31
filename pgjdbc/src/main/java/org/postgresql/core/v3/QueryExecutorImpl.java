@@ -2810,10 +2810,13 @@ public class QueryExecutorImpl extends QueryExecutorBase {
       LOGGER.log(Level.FINEST, " <=BE ParameterStatus({0} = {1})", new Object[]{name, value});
     }
 
-    /* Update client-visible parameter status map for getParameterStatuses() */
-    if (name != null && !name.equals("")) {
-      onParameterStatus(name, value);
+    //if the name is empty, there is nothing to do
+    if (name.isEmpty()) {
+      return;
     }
+
+    /* Update client-visible parameter status map for getParameterStatuses() */
+    onParameterStatus(name, value);
 
     if (name.equals("client_encoding")) {
       if (allowEncodingChanges) {
@@ -2830,6 +2833,7 @@ public class QueryExecutorImpl extends QueryExecutorBase {
             value), PSQLState.CONNECTION_FAILURE);
 
       }
+      return;
     }
 
     if (name.equals("DateStyle") && !value.startsWith("ISO")
