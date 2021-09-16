@@ -56,7 +56,7 @@ jobs:
         const JDK_OPTIONS = [
             { group: 'Zulu', version: '8', lts: true, distribution: 'zulu' },
             { group: 'Zulu', version: '11', lts: true, distribution: 'zulu' },
-            { group: 'Zulu', version: '15', lts: false, distribution: 'zulu' },
+            { group: 'Zulu', version: '17', lts: true, distribution: 'zulu' },
         ];
 
         const OTHER_JDK_OPTIONS = [
