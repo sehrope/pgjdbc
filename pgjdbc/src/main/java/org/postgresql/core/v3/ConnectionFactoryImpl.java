@@ -91,11 +91,21 @@ public class ConnectionFactoryImpl extends ConnectionFactory {
     }
   }
 
-  private PGStream tryConnect(String user, String database,
-      Properties info, SocketFactory socketFactory, HostSpec hostSpec,
+  private PGStream tryConnect(Properties info, SocketFactory socketFactory, HostSpec hostSpec,
       SslMode sslMode, GSSEncMode gssEncMode)
       throws SQLException, IOException {
+
     int connectTimeout = PGProperty.CONNECT_TIMEOUT.getInt(info) * 1000;
+    String user = PGProperty.USER.get(info);
+    String database = PGProperty.PG_DBNAME.get(info);
+    if (user == null) {
+      throw new PSQLException(GT.tr("User cannot  be null"),
+          PSQLState.INVALID_NAME);
+    }
+    if (database == null) {
+      throw new PSQLException(GT.tr("Database cannot  be null"),
+          PSQLState.INVALID_NAME);
+    }
 
     PGStream newStream = new PGStream(socketFactory, hostSpec, connectTimeout);
 
@@ -143,7 +153,7 @@ public class ConnectionFactoryImpl extends ConnectionFactory {
       LOGGER.log(Level.FINE, "Send Buffer Size is {0}", newStream.getSocket().getSendBufferSize());
     }
 
-    newStream = enableGSSEncrypted(newStream, gssEncMode, hostSpec.getHost(), user, info, connectTimeout);
+    newStream = enableGSSEncrypted(newStream, gssEncMode, hostSpec.getHost(), info, connectTimeout);
 
     // if we have a security context then gss negotiation succeeded. Do not attempt SSL negotiation
     if (!newStream.isGssEncrypted()) {
@@ -166,8 +176,7 @@ public class ConnectionFactoryImpl extends ConnectionFactory {
   }
 
   @Override
-  public QueryExecutor openConnectionImpl(HostSpec[] hostSpecs, String user, String database,
-      Properties info) throws SQLException {
+  public QueryExecutor openConnectionImpl(HostSpec[] hostSpecs, Properties info) throws SQLException {
     SslMode sslMode = SslMode.of(info);
     GSSEncMode gssEncMode = GSSEncMode.of(info);
 
@@ -212,7 +221,7 @@ public class ConnectionFactoryImpl extends ConnectionFactory {
       PGStream newStream = null;
       try {
         try {
-          newStream = tryConnect(user, database, info, socketFactory, hostSpec, sslMode, gssEncMode);
+          newStream = tryConnect(info, socketFactory, hostSpec, sslMode, gssEncMode);
         } catch (SQLException e) {
           if (sslMode == SslMode.PREFER
               && PSQLState.INVALID_AUTHORIZATION_SPECIFICATION.getState().equals(e.getSQLState())) {
@@ -221,7 +230,7 @@ public class ConnectionFactoryImpl extends ConnectionFactory {
             Throwable ex = null;
             try {
               newStream =
-                  tryConnect(user, database, info, socketFactory, hostSpec, SslMode.DISABLE,gssEncMode);
+                  tryConnect(info, socketFactory, hostSpec, SslMode.DISABLE,gssEncMode);
               LOGGER.log(Level.FINE, "Downgraded to non-encrypted connection for host {0}",
                   hostSpec);
             } catch (SQLException | IOException ee) {
@@ -240,7 +249,7 @@ public class ConnectionFactoryImpl extends ConnectionFactory {
             Throwable ex = null;
             try {
               newStream =
-                  tryConnect(user, database, info, socketFactory, hostSpec, SslMode.REQUIRE, gssEncMode);
+                  tryConnect(info, socketFactory, hostSpec, SslMode.REQUIRE, gssEncMode);
               LOGGER.log(Level.FINE, "Upgraded to encrypted connection for host {0}",
                   hostSpec);
             } catch (SQLException ee) {
@@ -266,8 +275,7 @@ public class ConnectionFactoryImpl extends ConnectionFactory {
         // CheckerFramework can't infer newStream is non-nullable
         castNonNull(newStream);
         // Do final startup.
-        QueryExecutor queryExecutor = new QueryExecutorImpl(newStream, user, database,
-            cancelSignalTimeout, info);
+        QueryExecutor queryExecutor = new QueryExecutorImpl(newStream, cancelSignalTimeout, info);
 
         // Check Primary or Secondary
         HostStatus hostStatus = HostStatus.ConnectOK;
@@ -411,7 +419,7 @@ public class ConnectionFactoryImpl extends ConnectionFactory {
     return Unsafe.credentialCacheExists();
   }
 
-  private PGStream enableGSSEncrypted(PGStream pgStream, GSSEncMode gssEncMode, String host, String user, Properties info,
+  private PGStream enableGSSEncrypted(PGStream pgStream, GSSEncMode gssEncMode, String host, Properties info,
                                     int connectTimeout)
       throws IOException, PSQLException {
 
@@ -431,6 +439,11 @@ public class ConnectionFactoryImpl extends ConnectionFactory {
       } else {
         return pgStream;
       }
+    }
+
+    String user = PGProperty.USER.get(info);
+    if (user == null) {
+      throw new PSQLException("GSSAPI encryption required but was impossible user is null", PSQLState.CONNECTION_REJECTED);
     }
 
     // attempt to acquire a GSS encrypted connection

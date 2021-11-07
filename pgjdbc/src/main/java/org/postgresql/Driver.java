@@ -463,7 +463,7 @@ public class Driver implements java.sql.Driver {
    * @throws SQLException if the connection could not be made
    */
   private static Connection makeConnection(String url, Properties props) throws SQLException {
-    return new PgConnection(hostSpecs(props), user(props), database(props), props, url);
+    return new PgConnection(hostSpecs(props), props, url);
   }
 
   /**
@@ -652,20 +652,6 @@ public class Driver implements java.sql.Driver {
       hostSpecs[i] = new HostSpec(hosts[i], Integer.parseInt(ports[i]), localSocketAddress);
     }
     return hostSpecs;
-  }
-
-  /**
-   * @return the username of the URL
-   */
-  private static String user(Properties props) {
-    return props.getProperty("user", "");
-  }
-
-  /**
-   * @return the database name of the URL
-   */
-  private static String database(Properties props) {
-    return props.getProperty("PGDBNAME", "");
   }
 
   /**
