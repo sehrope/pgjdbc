@@ -497,7 +497,7 @@ public class ConnectionFactoryImpl extends ConnectionFactory {
       case 'G':
         LOGGER.log(Level.FINEST, " <=BE GSSEncryptedOk");
         try {
-          String password = AuthenticationPluginManager.getPassword(AuthenticationRequestType.GSS, info);
+          char[] password = AuthenticationPluginManager.getPassword(AuthenticationRequestType.GSS, info);
           org.postgresql.gss.MakeGSS.authenticate(true, pgStream, host, user, password,
               PGProperty.JAAS_APPLICATION_NAME.get(info),
               PGProperty.KERBEROS_SERVER_NAME.get(info), false, // TODO: fix this
@@ -756,7 +756,7 @@ public class ConnectionFactoryImpl extends ConnectionFactory {
                   castNonNull(sspiClient).startSSPI();
                 } else {
                   /* Use JGSS's GSSAPI for this request */
-                  String password = AuthenticationPluginManager.getPassword(AuthenticationRequestType.GSS, info);
+                  char[] password = AuthenticationPluginManager.getPassword(AuthenticationRequestType.GSS, info);
                   org.postgresql.gss.MakeGSS.authenticate(false, pgStream, host, user, password,
                       PGProperty.JAAS_APPLICATION_NAME.get(info),
                       PGProperty.KERBEROS_SERVER_NAME.get(info), usespnego,
@@ -775,20 +775,20 @@ public class ConnectionFactoryImpl extends ConnectionFactory {
               case AUTH_REQ_SASL:
                 LOGGER.log(Level.FINEST, " <=BE AuthenticationSASL");
 
-                String password = AuthenticationPluginManager.getPassword(AuthenticationRequestType.SASL, info);
+                char[] password = AuthenticationPluginManager.getPassword(AuthenticationRequestType.SASL, info);
                 if (password == null) {
                   throw new PSQLException(
                       GT.tr(
                           "The server requested SCRAM-based authentication, but no password was provided."),
                       PSQLState.CONNECTION_REJECTED);
                 }
-                if (password.equals("")) {
+                if (password.length == 0) {
                   throw new PSQLException(
                       GT.tr(
                           "The server requested SCRAM-based authentication, but the password is an empty string."),
                       PSQLState.CONNECTION_REJECTED);
                 }
-                scramAuthenticator = new org.postgresql.jre7.sasl.ScramAuthenticator(user, castNonNull(password), pgStream);
+                scramAuthenticator = new org.postgresql.jre7.sasl.ScramAuthenticator(user, castNonNull(String.valueOf(password)), pgStream);
                 scramAuthenticator.processServerMechanismsAndInit();
                 scramAuthenticator.sendScramClientFirstMessage();
                 // This works as follows:

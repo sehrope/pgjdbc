@@ -37,12 +37,16 @@ public class AuthenticationPluginManager {
    * @return The password to use for authentication or null if none is available
    * @throws PSQLException Throws a PSQLException if the plugin class cannot be instantiated
    */
-  public static @Nullable String getPassword(AuthenticationRequestType type, Properties info) throws PSQLException {
+  public static char @Nullable [] getPassword(AuthenticationRequestType type, Properties info) throws PSQLException {
     String authPluginClassName = PGProperty.AUTHENTICATION_PLUGIN_CLASS_NAME.get(info);
 
     if (authPluginClassName == null || authPluginClassName.equals("")) {
       // Default auth plugin simply pulls password directly from connection properties
-      return PGProperty.PASSWORD.get(info);
+      String password = PGProperty.PASSWORD.get(info);
+      if (password != null) {
+        return password.toCharArray();
+      }
+      return null;
     }
 
     AuthenticationPlugin authPlugin;
@@ -67,7 +71,7 @@ public class AuthenticationPluginManager {
    * @throws PSQLException Throws a PSQLException if the plugin class cannot be instantiated or if the retrieved password is null.
    */
   public static byte[] getEncodedPassword(AuthenticationRequestType type, Properties info) throws PSQLException {
-    String password = getPassword(type, info);
+    char[] password = getPassword(type, info);
 
     if (password == null) {
       throw new PSQLException(
@@ -75,6 +79,6 @@ public class AuthenticationPluginManager {
           PSQLState.CONNECTION_REJECTED);
     }
 
-    return password.getBytes(StandardCharsets.UTF_8);
+    return String.valueOf(password).getBytes(StandardCharsets.UTF_8);
   }
 }
