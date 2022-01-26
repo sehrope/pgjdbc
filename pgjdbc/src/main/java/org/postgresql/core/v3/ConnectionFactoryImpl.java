@@ -497,12 +497,13 @@ public class ConnectionFactoryImpl extends ConnectionFactory {
       case 'G':
         LOGGER.log(Level.FINEST, " <=BE GSSEncryptedOk");
         try {
-          char[] password = AuthenticationPluginManager.getPassword(AuthenticationRequestType.GSS, info);
-          org.postgresql.gss.MakeGSS.authenticate(true, pgStream, host, user, password,
-              PGProperty.JAAS_APPLICATION_NAME.get(info),
-              PGProperty.KERBEROS_SERVER_NAME.get(info), false, // TODO: fix this
-              PGProperty.JAAS_LOGIN.getBoolean(info),
-              PGProperty.LOG_SERVER_ERROR_DETAIL.getBoolean(info));
+          AuthenticationPluginManager.withPassword(AuthenticationRequestType.GSS, info, password -> {
+            org.postgresql.gss.MakeGSS.authenticate(true, pgStream, host, user, password,
+                PGProperty.JAAS_APPLICATION_NAME.get(info),
+                PGProperty.KERBEROS_SERVER_NAME.get(info), false, // TODO: fix this
+                PGProperty.JAAS_LOGIN.getBoolean(info),
+                PGProperty.LOG_SERVER_ERROR_DETAIL.getBoolean(info));
+          });
           return pgStream;
         } catch (PSQLException ex) {
           // allow the connection to proceed
@@ -623,7 +624,7 @@ public class ConnectionFactoryImpl extends ConnectionFactory {
     ISSPIClient sspiClient = null;
 
     /* SCRAM authentication state, if used */
-    org.postgresql.jre7.sasl.ScramAuthenticator scramAuthenticator = null;
+    org.postgresql.jre7.sasl.ScramAuthenticator[] scramAuthenticator = { null };
 
     try {
       authloop: while (true) {
@@ -660,19 +661,19 @@ public class ConnectionFactoryImpl extends ConnectionFactory {
                   LOGGER.log(Level.FINEST, " <=BE AuthenticationReqMD5(salt={0})", Utils.toHexString(md5Salt));
                 }
 
-                byte[] encodedPassword = AuthenticationPluginManager.getEncodedPassword(AuthenticationRequestType.MD5_PASSWORD, info);
-                byte[] digest =
-                    MD5Digest.encode(user.getBytes(StandardCharsets.UTF_8), encodedPassword, md5Salt);
+                AuthenticationPluginManager.withEncodedPassword(AuthenticationRequestType.MD5_PASSWORD, info, encodedPassword -> {
+                  byte[] digest = MD5Digest.encode(user.getBytes(StandardCharsets.UTF_8), encodedPassword, md5Salt);
 
-                if (LOGGER.isLoggable(Level.FINEST)) {
-                  LOGGER.log(Level.FINEST, " FE=> Password(md5digest={0})", new String(digest, StandardCharsets.US_ASCII));
-                }
+                  if (LOGGER.isLoggable(Level.FINEST)) {
+                    LOGGER.log(Level.FINEST, " FE=> Password(md5digest={0})", new String(digest, StandardCharsets.US_ASCII));
+                  }
 
-                pgStream.sendChar('p');
-                pgStream.sendInteger4(4 + digest.length + 1);
-                pgStream.send(digest);
-                pgStream.sendChar(0);
-                pgStream.flush();
+                  pgStream.sendChar('p');
+                  pgStream.sendInteger4(4 + digest.length + 1);
+                  pgStream.send(digest);
+                  pgStream.sendChar(0);
+                  pgStream.flush();
+                });
 
                 break;
               }
@@ -681,13 +682,13 @@ public class ConnectionFactoryImpl extends ConnectionFactory {
                 LOGGER.log(Level.FINEST, "<=BE AuthenticationReqPassword");
                 LOGGER.log(Level.FINEST, " FE=> Password(password=<not shown>)");
 
-                byte[] encodedPassword = AuthenticationPluginManager.getEncodedPassword(AuthenticationRequestType.CLEARTEXT_PASSWORD, info);
-
-                pgStream.sendChar('p');
-                pgStream.sendInteger4(4 + encodedPassword.length + 1);
-                pgStream.send(encodedPassword);
-                pgStream.sendChar(0);
-                pgStream.flush();
+                AuthenticationPluginManager.withEncodedPassword(AuthenticationRequestType.CLEARTEXT_PASSWORD, info, encodedPassword -> {
+                  pgStream.sendChar('p');
+                  pgStream.sendInteger4(4 + encodedPassword.length + 1);
+                  pgStream.send(encodedPassword);
+                  pgStream.sendChar(0);
+                  pgStream.flush();
+                });
 
                 break;
               }
@@ -756,12 +757,13 @@ public class ConnectionFactoryImpl extends ConnectionFactory {
                   castNonNull(sspiClient).startSSPI();
                 } else {
                   /* Use JGSS's GSSAPI for this request */
-                  char[] password = AuthenticationPluginManager.getPassword(AuthenticationRequestType.GSS, info);
-                  org.postgresql.gss.MakeGSS.authenticate(false, pgStream, host, user, password,
-                      PGProperty.JAAS_APPLICATION_NAME.get(info),
-                      PGProperty.KERBEROS_SERVER_NAME.get(info), usespnego,
-                      PGProperty.JAAS_LOGIN.getBoolean(info),
-                      PGProperty.LOG_SERVER_ERROR_DETAIL.getBoolean(info));
+                  AuthenticationPluginManager.withPassword(AuthenticationRequestType.GSS, info, password -> {
+                    org.postgresql.gss.MakeGSS.authenticate(false, pgStream, host, user, password,
+                        PGProperty.JAAS_APPLICATION_NAME.get(info),
+                        PGProperty.KERBEROS_SERVER_NAME.get(info), usespnego,
+                        PGProperty.JAAS_LOGIN.getBoolean(info),
+                        PGProperty.LOG_SERVER_ERROR_DETAIL.getBoolean(info));
+                  });
                 }
                 break;
 
@@ -775,22 +777,23 @@ public class ConnectionFactoryImpl extends ConnectionFactory {
               case AUTH_REQ_SASL:
                 LOGGER.log(Level.FINEST, " <=BE AuthenticationSASL");
 
-                char[] password = AuthenticationPluginManager.getPassword(AuthenticationRequestType.SASL, info);
-                if (password == null) {
-                  throw new PSQLException(
-                      GT.tr(
-                          "The server requested SCRAM-based authentication, but no password was provided."),
-                      PSQLState.CONNECTION_REJECTED);
-                }
-                if (password.length == 0) {
-                  throw new PSQLException(
-                      GT.tr(
-                          "The server requested SCRAM-based authentication, but the password is an empty string."),
-                      PSQLState.CONNECTION_REJECTED);
-                }
-                scramAuthenticator = new org.postgresql.jre7.sasl.ScramAuthenticator(user, castNonNull(String.valueOf(password)), pgStream);
-                scramAuthenticator.processServerMechanismsAndInit();
-                scramAuthenticator.sendScramClientFirstMessage();
+                AuthenticationPluginManager.withPassword(AuthenticationRequestType.SASL, info, password -> {
+                  if (password == null) {
+                    throw new PSQLException(
+                        GT.tr(
+                            "The server requested SCRAM-based authentication, but no password was provided."),
+                        PSQLState.CONNECTION_REJECTED);
+                  }
+                  if (password.length == 0) {
+                    throw new PSQLException(
+                        GT.tr(
+                            "The server requested SCRAM-based authentication, but the password is an empty string."),
+                        PSQLState.CONNECTION_REJECTED);
+                  }
+                  scramAuthenticator[0] = new org.postgresql.jre7.sasl.ScramAuthenticator(user, castNonNull(String.valueOf(password)), pgStream);
+                });
+                scramAuthenticator[0].processServerMechanismsAndInit();
+                scramAuthenticator[0].sendScramClientFirstMessage();
                 // This works as follows:
                 // 1. When tests is run from IDE, it is assumed SCRAM library is on the classpath
                 // 2. In regular build for Java < 8 this `if` is deactivated and the code always throws
@@ -802,11 +805,11 @@ public class ConnectionFactoryImpl extends ConnectionFactory {
                 break;
 
               case AUTH_REQ_SASL_CONTINUE:
-                castNonNull(scramAuthenticator).processServerFirstMessage(msgLen - 4 - 4);
+                castNonNull(scramAuthenticator[0]).processServerFirstMessage(msgLen - 4 - 4);
                 break;
 
               case AUTH_REQ_SASL_FINAL:
-                castNonNull(scramAuthenticator).verifyServerSignature(msgLen - 4 - 4);
+                castNonNull(scramAuthenticator[0]).verifyServerSignature(msgLen - 4 - 4);
                 break;
 
               case AUTH_REQ_OK:
