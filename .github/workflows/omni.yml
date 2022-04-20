@@ -57,6 +57,7 @@ jobs:
             { group: 'Zulu', version: '8', lts: true, distribution: 'zulu' },
             { group: 'Zulu', version: '11', lts: true, distribution: 'zulu' },
             { group: 'Zulu', version: '15', lts: false, distribution: 'zulu' },
+            { group: 'Zulu', version: '17', lts: true, distribution: 'zulu' },
         ];
 
         const OTHER_JDK_OPTIONS = [
@@ -72,6 +73,7 @@ jobs:
           // Amazon Corretto
           { group: 'Corretto', version: '8', lts: true, distribution: 'jdkfile', url: 'https://corretto.aws/downloads/latest/amazon-corretto-8-x64-linux-jdk.tar.gz'},
           { group: 'Corretto', version: '11', lts: true, distribution: 'jdkfile', url: 'https://corretto.aws/downloads/latest/amazon-corretto-11-x64-linux-jdk.tar.gz'},
+          { group: 'Corretto', version: '17', lts: true, distribution: 'jdkfile', url: 'https://corretto.aws/downloads/latest/amazon-corretto-17-x64-linux-jdk.tar.gz'},
         ];
 
         const PG_VERSIONS = [
