@@ -512,16 +512,28 @@ public class TestUtil {
    */
   public static void createView(Connection con, String viewName, String query)
       throws SQLException {
-    Statement st = con.createStatement();
-    try {
+    try ( Statement st = con.createStatement() ) {
       // Drop the view
       dropView(con, viewName);
 
       String sql = "CREATE VIEW " + viewName + " AS " + query;
 
       st.executeUpdate(sql);
-    } finally {
-      closeQuietly(st);
+    }
+  }
+
+  /*
+   * Helper - creates a materialized view
+   */
+  public static void createMaterializedView(Connection con, String matViewName, String query)
+      throws SQLException {
+    try ( Statement st = con.createStatement() ) {
+      // Drop the view
+      dropMaterializedView(con, matViewName);
+
+      String sql = "CREATE MATERIALIZED VIEW " + matViewName + " AS " + query;
+
+      st.executeUpdate(sql);
     }
   }
 
@@ -629,10 +641,24 @@ public class TestUtil {
   }
 
   /*
+   * Helper - drops a materialized view
+   */
+  public static void dropMaterializedView(Connection con, String matView) throws SQLException {
+    dropObject(con, "MATERIALIZED VIEW", matView);
+  }
+
+  /*
    * Helper - drops a type
    */
   public static void dropType(Connection con, String type) throws SQLException {
     dropObject(con, "TYPE", type);
+  }
+
+  /*
+   * Drops a function with a given signature.
+   */
+  public static void dropFunction(Connection con, String name, String arguments) throws SQLException {
+    dropObject(con, "FUNCTION", name + "(" + arguments + ")");
   }
 
   private static void dropObject(Connection con, String type, String name) throws SQLException {
@@ -767,6 +793,13 @@ public class TestUtil {
       return ((PgConnection) con).haveMinimumServerVersion(version);
     }
     return false;
+  }
+
+  public static void assumeHaveMinimumServerVersion(Version version)
+      throws SQLException {
+    try (Connection conn = openPrivilegedDB()) {
+      Assume.assumeTrue(TestUtil.haveMinimumServerVersion(conn, version));
+    }
   }
 
   public static boolean haveMinimumJVMVersion(String version) {
@@ -1137,7 +1170,19 @@ public class TestUtil {
     }
   }
 
+  /**
+   * Executes given SQL via {@link Statement#execute(String)} on a given connection.
+   * @deprecated prefer {@link #execute(Connection, String)} since it yields easier for read code
+   */
+  @Deprecated
   public static void execute(String sql, Connection connection) throws SQLException {
+    execute(connection, sql);
+  }
+
+  /**
+   * Executes given SQL via {@link Statement#execute(String)} on a given connection.
+   */
+  public static void execute(Connection connection, String sql) throws SQLException {
     try (Statement stmt = connection.createStatement()) {
       stmt.execute(sql);
     }

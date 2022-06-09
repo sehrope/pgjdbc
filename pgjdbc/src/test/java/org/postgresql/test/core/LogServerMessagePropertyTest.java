@@ -17,6 +17,7 @@ import org.junit.Test;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.Locale;
 import java.util.Properties;
 
 public class LogServerMessagePropertyTest {
@@ -67,13 +68,13 @@ public class LogServerMessagePropertyTest {
   }
 
   private static void assertMessageContains(String message, String text) {
-    if (message.toLowerCase().indexOf(text.toLowerCase()) < 0) {
+    if (!message.toLowerCase(Locale.ROOT).contains(text.toLowerCase(Locale.ROOT))) {
       Assert.fail(String.format("Message must contain text '%s': %s", text, message));
     }
   }
 
   private static void assertMessageDoesNotContain(String message, String text) {
-    if (message.toLowerCase().indexOf(text.toLowerCase()) >= 0) {
+    if (message.toLowerCase(Locale.ROOT).contains(text.toLowerCase(Locale.ROOT))) {
       Assert.fail(String.format("Message must not contain text '%s': %s", text, message));
     }
   }
@@ -83,7 +84,7 @@ public class LogServerMessagePropertyTest {
     Properties props = new Properties();
     String message = testViolatePrimaryKey(props);
     assertMessageContains(message, PRIMARY_KEY_NAME);
-    assertMessageContains(message, "Detail:");
+    // TODO: Detail is locale-specific assertMessageContains(message, "Detail:");
     assertMessageContains(message, SECRET_VALUE);
   }
 
@@ -96,7 +97,7 @@ public class LogServerMessagePropertyTest {
     props.setProperty(PGProperty.LOG_SERVER_ERROR_DETAIL.getName(), "true");
     String message = testViolatePrimaryKey(props);
     assertMessageContains(message, PRIMARY_KEY_NAME);
-    assertMessageContains(message, "Detail:");
+    // TODO: Detail is locale-specific assertMessageContains(message, "Detail:");
     assertMessageContains(message, SECRET_VALUE);
   }
 
@@ -115,7 +116,7 @@ public class LogServerMessagePropertyTest {
     Properties props = new Properties();
     String message = testViolatePrimaryKey(props, true);
     assertMessageContains(message, PRIMARY_KEY_NAME);
-    assertMessageContains(message, "Detail:");
+    // TODO: Detail is locale-specific assertMessageContains(message, "Detail:");
     assertMessageContains(message, SECRET_VALUE);
   }
 
@@ -128,7 +129,7 @@ public class LogServerMessagePropertyTest {
     props.setProperty(PGProperty.LOG_SERVER_ERROR_DETAIL.getName(), "true");
     String message = testViolatePrimaryKey(props, true);
     assertMessageContains(message, PRIMARY_KEY_NAME);
-    assertMessageContains(message, "Detail:");
+    // TODO: Detail is locale-specific assertMessageContains(message, "Detail:");
     assertMessageContains(message, SECRET_VALUE);
   }
 
@@ -138,7 +139,7 @@ public class LogServerMessagePropertyTest {
     props.setProperty(PGProperty.LOG_SERVER_ERROR_DETAIL.getName(), "false");
     String message = testViolatePrimaryKey(props, true);
     assertMessageContains(message, PRIMARY_KEY_NAME);
-    assertMessageDoesNotContain(message, "Detail:");
+    // TODO: Detail is locale-specific assertMessageDoesNotContain(message, "Detail:");
     assertMessageDoesNotContain(message, SECRET_VALUE);
   }
 }

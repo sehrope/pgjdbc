@@ -179,6 +179,7 @@ allprojects {
             val testImplementation by configurations
             val testRuntimeOnly by configurations
             testImplementation("org.junit.jupiter:junit-jupiter-api")
+            testImplementation("uk.org.webcompere:system-stubs-jupiter")
             testImplementation("org.junit.jupiter:junit-jupiter-params")
             testImplementation("org.hamcrest:hamcrest")
             testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine")
@@ -390,6 +391,7 @@ allprojects {
             apply(plugin = "de.thetaphi.forbiddenapis")
             configure<CheckForbiddenApisExtension> {
                 failOnUnsupportedJava = false
+                signaturesFiles = files("$rootDir/config/forbidden-apis/forbidden-apis.txt")
                 bundledSignatures.addAll(
                     listOf(
                         // "jdk-deprecated",
@@ -549,6 +551,9 @@ allprojects {
                 passProperty("preferQueryMode")
                 passProperty("java.awt.headless")
                 passProperty("junit.jupiter.execution.parallel.enabled", "true")
+                // TODO: remove when upgrade to JUnit 5.9+
+                // See https://github.com/junit-team/junit5/commit/347e3119d36a5c226cddd7981452f11335fad422
+                passProperty("junit.jupiter.execution.parallel.config.strategy", "DYNAMIC")
                 passProperty("junit.jupiter.execution.timeout.default", "5 m")
                 passProperty("user.language", "TR")
                 passProperty("user.country", "tr")

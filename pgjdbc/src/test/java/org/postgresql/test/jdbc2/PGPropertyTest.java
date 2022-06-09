@@ -8,7 +8,6 @@ package org.postgresql.test.jdbc2;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
@@ -29,6 +28,7 @@ import java.beans.Introspector;
 import java.beans.PropertyDescriptor;
 import java.sql.DriverPropertyInfo;
 import java.util.ArrayList;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
 import java.util.TreeMap;
@@ -98,7 +98,7 @@ public class PGPropertyTest {
       String enumName = property.name().replaceAll("_", "");
       assertEquals("Naming of the enum constant [" + property.name()
           + "] should follow the naming of its underlying property [" + property.getName()
-          + "] in PGProperty", property.getName().toLowerCase(), enumName.toLowerCase());
+          + "] in PGProperty", property.getName().toLowerCase(Locale.ROOT), enumName.toLowerCase(Locale.ROOT));
     }
   }
 
@@ -138,7 +138,7 @@ public class PGPropertyTest {
     // test for the existence of all read methods (getXXX/isXXX) and write methods (setXXX) for all
     // known properties
     for (PGProperty property : PGProperty.values()) {
-      if (!property.getName().startsWith("PG")) {
+      if (!property.getName().startsWith("PG") && property != PGProperty.SERVICE) {
         assertTrue("Missing getter/setter for property [" + property.getName() + "] in ["
             + BaseDataSource.class + "]", propertyDescriptors.containsKey(property.getName()));
 
@@ -154,7 +154,7 @@ public class PGPropertyTest {
 
     // test readability/writability of default value
     for (PGProperty property : PGProperty.values()) {
-      if (!property.getName().startsWith("PG")) {
+      if (!property.getName().startsWith("PG") && property != PGProperty.SERVICE) {
         Object propertyValue =
             propertyDescriptors.get(property.getName()).getReadMethod().invoke(dataSource);
         propertyDescriptors.get(property.getName()).getWriteMethod().invoke(dataSource,
@@ -216,15 +216,6 @@ public class PGPropertyTest {
   }
 
   @Test
-  public void testNullValue() {
-    Properties empty = new Properties();
-    assertNull(PGProperty.LOGGER_LEVEL.getSetString(empty));
-    Properties withLogging = new Properties();
-    withLogging.setProperty(PGProperty.LOGGER_LEVEL.getName(), "OFF");
-    assertNotNull(PGProperty.LOGGER_LEVEL.getSetString(withLogging));
-  }
-
-  @Test
   public void testEncodedUrlValues() {
     String databaseName = "d&a%ta+base";
     String userName = "&u%ser";
@@ -265,15 +256,15 @@ public class PGPropertyTest {
       if (!property.name().startsWith("PG")) { // Ignore all properties that start with PG
         String[] words = property.name().split("_");
         if (words.length == 1) {
-          assertEquals(words[0].toLowerCase(), property.getName());
+          assertEquals(words[0].toLowerCase(Locale.ROOT), property.getName());
         } else {
           if (!excluded.contains(property.name())) {
             String word = "";
             for (int i = 0; i < words.length; i++) {
               if (i == 0) {
-                word = words[i].toLowerCase();
+                word = words[i].toLowerCase(Locale.ROOT);
               } else {
-                word += words[i].substring(0, 1).toUpperCase() + words[i].substring(1).toLowerCase();
+                word += words[i].substring(0, 1).toUpperCase(Locale.ROOT) + words[i].substring(1).toLowerCase(Locale.ROOT);
               }
             }
             assertEquals(word, property.getName());

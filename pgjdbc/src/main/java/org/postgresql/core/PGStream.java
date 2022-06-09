@@ -113,6 +113,7 @@ public class PGStream implements Closeable, Flushable {
     int receiveBufferSize = 1024;
     int soTimeout = 0;
     boolean keepAlive = false;
+    boolean tcpNoDelay = true;
 
     /*
     Get the existing values before closing the stream
@@ -122,6 +123,7 @@ public class PGStream implements Closeable, Flushable {
       receiveBufferSize = pgStream.getSocket().getReceiveBufferSize();
       soTimeout = pgStream.getSocket().getSoTimeout();
       keepAlive = pgStream.getSocket().getKeepAlive();
+      tcpNoDelay = pgStream.getSocket().getTcpNoDelay();
 
     } catch ( SocketException ex ) {
       // ignore it
@@ -140,6 +142,7 @@ public class PGStream implements Closeable, Flushable {
     socket.setSendBufferSize(sendBufferSize);
     setNetworkTimeout(soTimeout);
     socket.setKeepAlive(keepAlive);
+    socket.setTcpNoDelay(tcpNoDelay);
 
     int2Buf = new byte[2];
     int4Buf = new byte[4];
@@ -352,8 +355,8 @@ public class PGStream implements Closeable, Flushable {
    * @throws IOException if an I/O error occurs or {@code val} cannot be encoded in 2 bytes
    */
   public void sendInteger2(int val) throws IOException {
-    if (val < Short.MIN_VALUE || val > Short.MAX_VALUE) {
-      throw new IOException("Tried to send an out-of-range integer as a 2-byte value: " + val);
+    if (val < 0 || val > 65535) {
+      throw new IllegalArgumentException("Tried to send an out-of-range integer as a 2-byte unsigned int value: " + val);
     }
     int2Buf[0] = (byte) (val >>> 8);
     int2Buf[1] = (byte) val;
@@ -540,6 +543,38 @@ public class PGStream implements Closeable, Flushable {
   public String receiveString() throws IOException {
     int len = pgInput.scanCStringLength();
     String res = encoding.decode(pgInput.getBuffer(), pgInput.getIndex(), len - 1);
+    pgInput.skip(len);
+    return res;
+  }
+
+  /**
+   * Receives a null-terminated string from the backend and attempts to decode to a
+   * {@link Encoding#decodeCanonicalized(byte[], int, int) canonical} {@code String}.
+   * If we don't see a null, then we assume something has gone wrong.
+   *
+   * @return string from back end
+   * @throws IOException if an I/O error occurs, or end of file
+   * @see Encoding#decodeCanonicalized(byte[], int, int)
+   */
+  public String receiveCanonicalString() throws IOException {
+    int len = pgInput.scanCStringLength();
+    String res = encoding.decodeCanonicalized(pgInput.getBuffer(), pgInput.getIndex(), len - 1);
+    pgInput.skip(len);
+    return res;
+  }
+
+  /**
+   * Receives a null-terminated string from the backend and attempts to decode to a
+   * {@link Encoding#decodeCanonicalizedIfPresent(byte[], int, int) canonical} {@code String}.
+   * If we don't see a null, then we assume something has gone wrong.
+   *
+   * @return string from back end
+   * @throws IOException if an I/O error occurs, or end of file
+   * @see Encoding#decodeCanonicalizedIfPresent(byte[], int, int)
+   */
+  public String receiveCanonicalStringIfPresent() throws IOException {
+    int len = pgInput.scanCStringLength();
+    String res = encoding.decodeCanonicalizedIfPresent(pgInput.getBuffer(), pgInput.getIndex(), len - 1);
     pgInput.skip(len);
     return res;
   }

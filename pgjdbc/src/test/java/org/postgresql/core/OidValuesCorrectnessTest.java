@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -50,6 +51,7 @@ public class OidValuesCorrectnessTest extends BaseTest4 {
   private static Map<String, ServerVersion> oidsMinimumVersions = new HashMap<String, ServerVersion>() {{
       put("JSON", ServerVersion.v9_2);
       put("JSON_ARRAY", ServerVersion.v9_2);
+      put("JSONB", ServerVersion.v9_4);
       put("JSONB_ARRAY", ServerVersion.v9_4);
       put("MACADDR8", ServerVersion.v10);
     }};
@@ -120,7 +122,7 @@ public class OidValuesCorrectnessTest extends BaseTest4 {
 
     Statement stmt = con.createStatement();
     ResultSet resultSet;
-    stmt.execute("select oid from pg_type where typname = '" + typeName.toLowerCase() + "'");
+    stmt.execute("select oid from pg_type where typname = '" + typeName.toLowerCase(Locale.ROOT) + "'");
     resultSet = stmt.getResultSet();
 
     // resultSet have to have next row

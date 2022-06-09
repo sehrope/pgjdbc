@@ -65,6 +65,11 @@ import java.sql.SQLXML;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.time.OffsetTime;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Map;
@@ -90,9 +95,23 @@ class PgPreparedStatement extends PgStatement implements PreparedStatement {
 
     this.preparedQuery = query;
     this.preparedParameters = this.preparedQuery.query.createParameterList();
+    int parameterCount = preparedParameters.getParameterCount();
+    int maxSupportedParameters = maximumNumberOfParameters();
+    if (parameterCount > maxSupportedParameters) {
+      throw new PSQLException(
+          GT.tr("PreparedStatement can have at most {0} parameters. Please consider using arrays, or splitting the query in several ones, or using COPY. Given query has {0} parameters",
+              maxSupportedParameters,
+              parameterCount),
+          PSQLState.INVALID_PARAMETER_VALUE);
+    }
+
     // TODO: this.wantsGeneratedKeysAlways = true;
 
     setPoolable(true); // As per JDBC spec: prepared and callable statements are poolable by
+  }
+
+  final int maximumNumberOfParameters() {
+    return connection.getPreferQueryMode() == PreferQueryMode.SIMPLE ? Integer.MAX_VALUE : 65535;
   }
 
   @Override
@@ -489,7 +508,12 @@ class PgPreparedStatement extends PgStatement implements PreparedStatement {
 
     if ((x instanceof PGBinaryObject) && connection.binaryTransferSend(oid)) {
       PGBinaryObject binObj = (PGBinaryObject) x;
-      byte[] data = new byte[binObj.lengthInBytes()];
+      int length = binObj.lengthInBytes();
+      if (length == 0) {
+        preparedParameters.setNull(parameterIndex, oid);
+        return;
+      }
+      byte[] data = new byte[length];
       binObj.toBytes(data, 0);
       bindBytes(parameterIndex, data, oid);
     } else {
@@ -586,11 +610,11 @@ class PgPreparedStatement extends PgStatement implements PreparedStatement {
           java.sql.Date tmpd;
           if (in instanceof java.util.Date) {
             tmpd = new java.sql.Date(((java.util.Date) in).getTime());
-          } else if (in instanceof java.time.LocalDate) {
-            setDate(parameterIndex, (java.time.LocalDate) in);
+          } else if (in instanceof LocalDate) {
+            setDate(parameterIndex, (LocalDate) in);
             break;
           } else {
-            tmpd = connection.getTimestampUtils().toDate(getDefaultCalendar(), in.toString());
+            tmpd = getTimestampUtils().toDate(getDefaultCalendar(), in.toString());
           }
           setDate(parameterIndex, tmpd);
         }
@@ -602,11 +626,14 @@ class PgPreparedStatement extends PgStatement implements PreparedStatement {
           java.sql.Time tmpt;
           if (in instanceof java.util.Date) {
             tmpt = new java.sql.Time(((java.util.Date) in).getTime());
-          } else if (in instanceof java.time.LocalTime) {
-            setTime(parameterIndex, (java.time.LocalTime) in);
+          } else if (in instanceof LocalTime) {
+            setTime(parameterIndex, (LocalTime) in);
+            break;
+          } else if (in instanceof OffsetTime) {
+            setTime(parameterIndex, (OffsetTime) in);
             break;
           } else {
-            tmpt = connection.getTimestampUtils().toTime(getDefaultCalendar(), in.toString());
+            tmpt = getTimestampUtils().toTime(getDefaultCalendar(), in.toString());
           }
           setTime(parameterIndex, tmpt);
         }
@@ -620,18 +647,18 @@ class PgPreparedStatement extends PgStatement implements PreparedStatement {
           java.sql.Timestamp tmpts;
           if (in instanceof java.util.Date) {
             tmpts = new java.sql.Timestamp(((java.util.Date) in).getTime());
-          } else if (in instanceof java.time.LocalDateTime) {
-            setTimestamp(parameterIndex, (java.time.LocalDateTime) in);
+          } else if (in instanceof LocalDateTime) {
+            setTimestamp(parameterIndex, (LocalDateTime) in);
             break;
           } else {
-            tmpts = connection.getTimestampUtils().toTimestamp(getDefaultCalendar(), in.toString());
+            tmpts = getTimestampUtils().toTimestamp(getDefaultCalendar(), in.toString());
           }
           setTimestamp(parameterIndex, tmpts);
         }
         break;
       case Types.TIMESTAMP_WITH_TIMEZONE:
-        if (in instanceof java.time.OffsetDateTime) {
-          setTimestamp(parameterIndex, (java.time.OffsetDateTime) in);
+        if (in instanceof OffsetDateTime) {
+          setTimestamp(parameterIndex, (OffsetDateTime) in);
         } else if (in instanceof PGTimestamp) {
           setObject(parameterIndex, in);
         } else {
@@ -975,14 +1002,16 @@ class PgPreparedStatement extends PgStatement implements PreparedStatement {
       setPGobject(parameterIndex, (PGobject) x);
     } else if (x instanceof Character) {
       setString(parameterIndex, ((Character) x).toString());
-    } else if (x instanceof java.time.LocalDate) {
-      setDate(parameterIndex, (java.time.LocalDate) x);
-    } else if (x instanceof java.time.LocalTime) {
-      setTime(parameterIndex, (java.time.LocalTime) x);
-    } else if (x instanceof java.time.LocalDateTime) {
-      setTimestamp(parameterIndex, (java.time.LocalDateTime) x);
-    } else if (x instanceof java.time.OffsetDateTime) {
-      setTimestamp(parameterIndex, (java.time.OffsetDateTime) x);
+    } else if (x instanceof LocalDate) {
+      setDate(parameterIndex, (LocalDate) x);
+    } else if (x instanceof LocalTime) {
+      setTime(parameterIndex, (LocalTime) x);
+    } else if (x instanceof OffsetTime) {
+      setTime(parameterIndex, (OffsetTime) x);
+    } else if (x instanceof LocalDateTime) {
+      setTimestamp(parameterIndex, (LocalDateTime) x);
+    } else if (x instanceof OffsetDateTime) {
+      setTimestamp(parameterIndex, (OffsetDateTime) x);
     } else if (x instanceof Map) {
       setMap(parameterIndex, (Map<?, ?>) x);
     } else if (x instanceof Number) {
@@ -1305,7 +1334,7 @@ class PgPreparedStatement extends PgStatement implements PreparedStatement {
     if (connection.binaryTransferSend(Oid.DATE)) {
       byte[] val = new byte[4];
       TimeZone tz = cal != null ? cal.getTimeZone() : null;
-      connection.getTimestampUtils().toBinDate(tz, val, d);
+      getTimestampUtils().toBinDate(tz, val, d);
       preparedParameters.setBinaryParameter(i, val, Oid.DATE);
       return;
     }
@@ -1332,7 +1361,7 @@ class PgPreparedStatement extends PgStatement implements PreparedStatement {
     if (cal == null) {
       cal = getDefaultCalendar();
     }
-    bindString(i, connection.getTimestampUtils().toString(cal, d), Oid.UNSPECIFIED);
+    bindString(i, getTimestampUtils().toString(cal, d), Oid.UNSPECIFIED);
   }
 
   public void setTime(@Positive int i, @Nullable Time t,
@@ -1360,7 +1389,7 @@ class PgPreparedStatement extends PgStatement implements PreparedStatement {
     if (cal == null) {
       cal = getDefaultCalendar();
     }
-    bindString(i, connection.getTimestampUtils().toString(cal, t), oid);
+    bindString(i, getTimestampUtils().toString(cal, t), oid);
   }
 
   public void setTimestamp(@Positive int i, @Nullable Timestamp t,
@@ -1417,29 +1446,34 @@ class PgPreparedStatement extends PgStatement implements PreparedStatement {
     if (cal == null) {
       cal = getDefaultCalendar();
     }
-    bindString(i, connection.getTimestampUtils().toString(cal, t), oid);
+    bindString(i, getTimestampUtils().toString(cal, t), oid);
   }
 
-  private void setDate(@Positive int i, java.time.LocalDate localDate) throws SQLException {
+  private void setDate(@Positive int i, LocalDate localDate) throws SQLException {
     int oid = Oid.DATE;
-    bindString(i, connection.getTimestampUtils().toString(localDate), oid);
+    bindString(i, getTimestampUtils().toString(localDate), oid);
   }
 
-  private void setTime(@Positive int i, java.time.LocalTime localTime) throws SQLException {
+  private void setTime(@Positive int i, LocalTime localTime) throws SQLException {
     int oid = Oid.TIME;
-    bindString(i, connection.getTimestampUtils().toString(localTime), oid);
+    bindString(i, getTimestampUtils().toString(localTime), oid);
   }
 
-  private void setTimestamp(@Positive int i, java.time.LocalDateTime localDateTime)
+  private void setTime(@Positive int i, OffsetTime offsetTime) throws SQLException {
+    int oid = Oid.TIMETZ;
+    bindString(i, getTimestampUtils().toString(offsetTime), oid);
+  }
+
+  private void setTimestamp(@Positive int i, LocalDateTime localDateTime)
       throws SQLException {
     int oid = Oid.TIMESTAMP;
-    bindString(i, connection.getTimestampUtils().toString(localDateTime), oid);
+    bindString(i, getTimestampUtils().toString(localDateTime), oid);
   }
 
-  private void setTimestamp(@Positive int i, java.time.OffsetDateTime offsetDateTime)
+  private void setTimestamp(@Positive int i, OffsetDateTime offsetDateTime)
       throws SQLException {
     int oid = Oid.TIMESTAMPTZ;
-    bindString(i, connection.getTimestampUtils().toString(offsetDateTime), oid);
+    bindString(i, getTimestampUtils().toString(offsetDateTime), oid);
   }
 
   public ParameterMetaData createParameterMetaData(BaseConnection conn, int[] oids)
@@ -1633,11 +1667,10 @@ class PgPreparedStatement extends PgStatement implements PreparedStatement {
   }
 
   private Calendar getDefaultCalendar() {
-    TimestampUtils timestampUtils = connection.getTimestampUtils();
-    if (timestampUtils.hasFastDefaultTimeZone()) {
-      return timestampUtils.getSharedCalendar(null);
+    if (getTimestampUtils().hasFastDefaultTimeZone()) {
+      return getTimestampUtils().getSharedCalendar(null);
     }
-    Calendar sharedCalendar = timestampUtils.getSharedCalendar(defaultTimeZone);
+    Calendar sharedCalendar = getTimestampUtils().getSharedCalendar(defaultTimeZone);
     if (defaultTimeZone == null) {
       defaultTimeZone = sharedCalendar.getTimeZone();
     }
@@ -1672,7 +1705,7 @@ class PgPreparedStatement extends PgStatement implements PreparedStatement {
     final int highestBlockCount = 128;
     final int maxValueBlocks = bindCount == 0 ? 1024 /* if no binds, use 1024 rows */
         : Integer.highestOneBit( // deriveForMultiBatch supports powers of two only
-            Math.min(Math.max(1, (Short.MAX_VALUE - 1) / bindCount), highestBlockCount));
+            Math.min(Math.max(1, maximumNumberOfParameters() / bindCount), highestBlockCount));
     int unprocessedBatchCount = batchParameters.size();
     final int fullValueBlocksCount = unprocessedBatchCount / maxValueBlocks;
     final int partialValueBlocksCount = Integer.bitCount(unprocessedBatchCount % maxValueBlocks);

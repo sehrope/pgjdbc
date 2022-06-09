@@ -379,6 +379,22 @@ public abstract class BaseDataSource implements CommonDataSource, Referenceable 
   }
 
   /**
+   * @return quoteReturningIdentifiers
+   * @see PGProperty#QUOTE_RETURNING_IDENTIFIERS
+   */
+  public boolean getQuoteReturningIdentifiers() {
+    return PGProperty.QUOTE_RETURNING_IDENTIFIERS.getBoolean(properties);
+  }
+
+  /**
+   * @param quoteIdentifiers indicate whether to quote identifiers
+   * @see PGProperty#QUOTE_RETURNING_IDENTIFIERS
+   */
+  public void setQuoteReturningIdentifiers(boolean quoteIdentifiers) {
+    PGProperty.QUOTE_RETURNING_IDENTIFIERS.set(properties, quoteIdentifiers);
+  }
+
+  /**
    * @return receive buffer size
    * @see PGProperty#RECEIVE_BUFFER_SIZE
    */
@@ -800,6 +816,22 @@ public abstract class BaseDataSource implements CommonDataSource, Referenceable 
   }
 
   /**
+   * @param enabled if TCP no delay should be enabled
+   * @see PGProperty#TCP_NO_DELAY
+   */
+  public void setTcpNoDelay( boolean enabled ) {
+    PGProperty.TCP_NO_DELAY.set(properties,enabled);
+  }
+
+  /**
+   * @return true if TCP no delay is enabled
+   * @see PGProperty#TCP_NO_DELAY
+   */
+  public boolean getTcpNoDelay() {
+    return PGProperty.TCP_NO_DELAY.getBoolean( properties );
+  }
+
+  /**
    * @param enabled if binary transfer should be enabled
    * @see PGProperty#BINARY_TRANSFER
    */
@@ -1176,34 +1208,58 @@ public abstract class BaseDataSource implements CommonDataSource, Referenceable 
   }
 
   /**
-   * @return Logger Level of the JDBC Driver
-   * @see PGProperty#LOGGER_LEVEL
+   * @return the localSocketAddress
+   * @see PGProperty#LOCAL_SOCKET_ADDRESS
    */
+  public @Nullable String getLocalSocketAddress() {
+    return PGProperty.LOCAL_SOCKET_ADDRESS.get(properties);
+  }
+
+  /**
+   * @param localSocketAddress local address to bind client side to
+   * @see PGProperty#LOCAL_SOCKET_ADDRESS
+   */
+  public void setLocalSocketAddress( String localSocketAddress ) {
+    PGProperty.LOCAL_SOCKET_ADDRESS.set(properties,localSocketAddress);
+  }
+
+  /**
+   * This property is no longer used by the driver and will be ignored.
+   * @return loggerLevel in properties
+   * @deprecated Configure via java.util.logging
+   */
+  @Deprecated
   public @Nullable String getLoggerLevel() {
     return PGProperty.LOGGER_LEVEL.get(properties);
   }
 
   /**
-   * @param loggerLevel of the JDBC Driver
-   * @see PGProperty#LOGGER_LEVEL
+   * This property is no longer used by the driver and will be ignored.
+   * @param loggerLevel loggerLevel to set, will be ignored
+   * @deprecated Configure via java.util.logging
    */
+  @Deprecated
   public void setLoggerLevel(@Nullable String loggerLevel) {
     PGProperty.LOGGER_LEVEL.set(properties, loggerLevel);
   }
 
   /**
-   * @return File output of the Logger.
-   * @see PGProperty#LOGGER_FILE
+   * This property is no longer used by the driver and will be ignored.
+   * @return loggerFile in properties
+   * @deprecated Configure via java.util.logging
    */
+  @Deprecated
   public @Nullable String getLoggerFile() {
     ExpressionProperties exprProps = new ExpressionProperties(properties, System.getProperties());
     return PGProperty.LOGGER_FILE.get(exprProps);
   }
 
   /**
-   * @param loggerFile File output of the Logger.
-   * @see PGProperty#LOGGER_LEVEL
+   * This property is no longer used by the driver and will be ignored.
+   * @param loggerFile will be ignored
+   * @deprecated Configure via java.util.logging
    */
+  @Deprecated
   public void setLoggerFile(@Nullable String loggerFile) {
     PGProperty.LOGGER_FILE.set(properties, loggerFile);
   }
@@ -1287,6 +1343,26 @@ public abstract class BaseDataSource implements CommonDataSource, Referenceable 
    */
   public void setURL(String url) {
     setUrl(url);
+  }
+
+  /**
+   *
+   * @return the class name to use for the Authentication Plugin.
+   *         This can be null in which case the default password authentication plugin will be used
+   */
+  public @Nullable String getAuthenticationPluginClassName() {
+    return PGProperty.AUTHENTICATION_PLUGIN_CLASS_NAME.get(properties);
+  }
+
+  /**
+   *
+   * @param className name of a class which implements {@link org.postgresql.plugin.AuthenticationPlugin}
+   *                  This class will be used to get the encoded bytes to be sent to the server as the
+   *                  password to authenticate the user.
+   *
+   */
+  public void setAuthenticationPluginClassName(String className) {
+    PGProperty.AUTHENTICATION_PLUGIN_CLASS_NAME.set(properties, className);
   }
 
   public @Nullable String getProperty(String name) throws SQLException {
@@ -1574,7 +1650,6 @@ public abstract class BaseDataSource implements CommonDataSource, Referenceable 
     PGProperty.ADAPTIVE_FETCH_MINIMUM.set(properties, adaptiveFetchMinimum);
   }
 
-  //#if mvn.project.property.postgresql.jdbc.spec >= "JDBC4.1"
   @Override
   public java.util.logging.Logger getParentLogger() {
     return Logger.getLogger("org.postgresql");

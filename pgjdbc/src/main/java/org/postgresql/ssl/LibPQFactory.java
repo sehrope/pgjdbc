@@ -29,6 +29,7 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateFactory;
+import java.util.Locale;
 import java.util.Properties;
 
 import javax.net.ssl.KeyManager;
@@ -56,7 +57,7 @@ public class LibPQFactory extends WrappedFactory {
     String sslpasswordcallback = PGProperty.SSL_PASSWORD_CALLBACK.get(info);
     if (sslpasswordcallback != null) {
       try {
-        cbh = (CallbackHandler) ObjectFactory.instantiate(sslpasswordcallback, info, false, null);
+        cbh = ObjectFactory.instantiate(CallbackHandler.class, sslpasswordcallback, info, false, null);
       } catch (Exception e) {
         throw new PSQLException(
           GT.tr("The password callback class provided {0} could not be instantiated.",
@@ -104,7 +105,7 @@ public class LibPQFactory extends WrappedFactory {
       String pathsep = System.getProperty("file.separator");
       String defaultdir;
 
-      if (System.getProperty("os.name").toLowerCase().contains("windows")) { // It is Windows
+      if (System.getProperty("os.name").toLowerCase(Locale.ROOT).contains("windows")) { // It is Windows
         defaultdir = System.getenv("APPDATA") + pathsep + "postgresql" + pathsep;
       } else {
         defaultdir = System.getProperty("user.home") + pathsep + ".postgresql" + pathsep;

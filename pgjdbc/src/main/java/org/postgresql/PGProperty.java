@@ -83,6 +83,16 @@ public enum PGProperty {
       "Assume the server is at least that version"),
 
   /**
+   * AuthenticationPluginClass
+   */
+
+  AUTHENTICATION_PLUGIN_CLASS_NAME(
+      "authenticationPluginClassName",
+      null,
+      "Name of class which implements AuthenticationPlugin"
+  ),
+
+  /**
    * Specifies what the driver should do if a query fails. In {@code autosave=always} mode, JDBC driver sets a savepoint before each query,
    * and rolls back to that savepoint in case of failure. In {@code autosave=never} mode (default), no savepoint dance is made ever.
    * In {@code autosave=conservative} mode, savepoint is set for each query, however the rollback is done only for rare cases
@@ -214,11 +224,11 @@ public enum PGProperty {
       new String[] {"select", "callIfNoReturn", "call"}),
 
   GSS_ENC_MODE(
-        "gssEncMode",
-        "allow",
-        "Force Encoded GSS Mode",
-        false,
-        new String[] {"disable", "allow", "prefer", "require"}
+      "gssEncMode",
+      "allow",
+      "Force Encoded GSS Mode",
+      false,
+      new String[] {"disable", "allow", "prefer", "require"}
   ),
 
   /**
@@ -255,7 +265,7 @@ public enum PGProperty {
    */
   JAAS_APPLICATION_NAME(
       "jaasApplicationName",
-      null,
+      "pgjdbc",
       "Specifies the name of the JAAS system or application login configuration."),
 
   /**
@@ -283,11 +293,17 @@ public enum PGProperty {
       "If disabled hosts are connected in the given order. If enabled hosts are chosen randomly from the set of suitable candidates"),
 
   /**
-   * <p>File name output of the Logger, if set, the Logger will use a
-   * {@link java.util.logging.FileHandler} to write to a specified file. If the parameter is not set
-   * or the file can't be created the {@link java.util.logging.ConsoleHandler} will be used instead.</p>
-   *
-   * <p>Parameter should be use together with {@link PGProperty#LOGGER_LEVEL}</p>
+   * <p>If this is set then the client side will bind to this address. This is useful if you need
+   * to choose which interface to connect to.</p>
+   */
+  LOCAL_SOCKET_ADDRESS(
+      "localSocketAddress",
+      null,
+      "Local Socket address, if set bind the client side of the socket to this address"),
+
+  /**
+   * This property is no longer used by the driver and will be ignored.
+   * Logging is configured via java.util.logging.
    */
   LOGGER_FILE(
       "loggerFile",
@@ -295,19 +311,8 @@ public enum PGProperty {
       "File name output of the Logger"),
 
   /**
-   * <p>Logger level of the driver. Allowed values: {@code OFF}, {@code DEBUG} or {@code TRACE}.</p>
-   *
-   * <p>This enable the {@link java.util.logging.Logger} of the driver based on the following mapping
-   * of levels:</p>
-   * <ul>
-   *     <li>FINE -&gt; DEBUG</li>
-   *     <li>FINEST -&gt; TRACE</li>
-   * </ul>
-   *
-   * <p><b>NOTE:</b> The recommended approach to enable java.util.logging is using a
-   * {@code logging.properties} configuration file with the property
-   * {@code -Djava.util.logging.config.file=myfile} or if your are using an application server
-   * you should use the appropriate logging subsystem.</p>
+   * This property is no longer used by the driver and will be ignored.
+   * Logging is configured via java.util.logging.
    */
   LOGGER_LEVEL(
       "loggerLevel",
@@ -383,7 +388,7 @@ public enum PGProperty {
    */
   PG_HOST(
       "PGHOST",
-      null,
+      "localhost",
       "Hostname of the PostgreSQL server (may be specified directly in the JDBC URL)",
       false),
 
@@ -392,7 +397,7 @@ public enum PGProperty {
    */
   PG_PORT(
       "PGPORT",
-      null,
+      "5432",
       "Port of the PostgreSQL server (may be specified directly in the JDBC URL)"),
 
   /**
@@ -448,6 +453,17 @@ public enum PGProperty {
       false,
       new String[] {"3"}),
 
+  /**
+   * Quote returning columns.
+   * There are some ORM's that quote everything, including returning columns
+   * If we quote them, then we end up sending ""colname"" to the backend
+   * which will not be found
+   */
+  QUOTE_RETURNING_IDENTIFIERS(
+    "quoteReturningIdentifiers",
+    "true",
+    "Quote identifiers provided in returning array",
+      false),
   /**
    * Puts this connection in read-only mode.
    */
@@ -519,6 +535,16 @@ public enum PGProperty {
       "sendBufferSize",
       "-1",
       "Socket write buffer size"),
+
+  /**
+   * Service name to use for additional parameters. It specifies a service name in "pg_service
+   * .conf" that holds additional connection parameters. This allows applications to specify only
+   * a service name so connection parameters can be centrally maintained.
+   */
+  SERVICE(
+      "service",
+      null,
+      "Service name to be searched in pg_service.conf resource"),
 
   /**
    * Socket factory used to create socket. A null value, which is the default, means system default.
@@ -667,7 +693,7 @@ public enum PGProperty {
       "any",
       "Specifies what kind of server to connect",
       false,
-      new String [] {"any", "primary", "master", "slave", "secondary",  "preferSlave", "preferSecondary"}),
+      new String [] {"any", "primary", "master", "slave", "secondary",  "preferSlave", "preferSecondary", "preferPrimary"}),
 
   /**
    * Enable or disable TCP keep-alive. The default is {@code false}.
@@ -677,6 +703,11 @@ public enum PGProperty {
       "false",
       "Enable or disable TCP keep-alive. The default is {@code false}."),
 
+  TCP_NO_DELAY(
+      "tcpNoDelay",
+      "true",
+      "Enable or disable TCP no delay. The default is (@code true}."
+  ),
   /**
    * Specifies the length to return for types of unknown length.
    */
@@ -720,7 +751,6 @@ public enum PGProperty {
   private final boolean required;
   private final String description;
   private final String @Nullable [] choices;
-  private final boolean deprecated;
 
   PGProperty(String name, @Nullable String defaultValue, String description) {
     this(name, defaultValue, description, false);
@@ -737,14 +767,10 @@ public enum PGProperty {
     this.required = required;
     this.description = description;
     this.choices = choices;
-    try {
-      this.deprecated = PGProperty.class.getField(name()).getAnnotation(Deprecated.class) != null;
-    } catch (NoSuchFieldException e) {
-      throw new RuntimeException(e);
-    }
   }
 
   private static final Map<String, PGProperty> PROPS_BY_NAME = new HashMap<String, PGProperty>();
+
   static {
     for (PGProperty prop : PGProperty.values()) {
       if (PROPS_BY_NAME.put(prop.getName(), prop) != null) {
@@ -797,15 +823,6 @@ public enum PGProperty {
    */
   public String @Nullable [] getChoices() {
     return choices;
-  }
-
-  /**
-   * Returns whether this connection parameter is deprecated.
-   *
-   * @return whether this connection parameter is deprecated
-   */
-  public boolean isDeprecated() {
-    return deprecated;
   }
 
   /**

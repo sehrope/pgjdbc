@@ -2,7 +2,7 @@
 layout: default_docs
 title: Connecting to the Database
 header: Chapter 3. Initializing the Driver
-resource: media
+resource: /documentation/head/media
 previoustitle: Loading the Driver
 previous: load.html
 nexttitle: Chapter 4. Using SSL
@@ -178,17 +178,13 @@ Connection conn = DriverManager.getConnection(url);
  
 * **loggerLevel** = String
 
-	Logger level of the driver. Allowed values: <code>OFF</code>, <code>DEBUG</code> or <code>TRACE</code>.
-	This enable the <code>java.util.logging.Logger</code> Level of the driver based on the following mapping
-	of levels: DEBUG -&gt; FINE, TRACE -&gt; FINEST. This property is intended for debug the driver and
-	not for general SQL query debug.
+	This property is no longer used by the driver and will be ignored.
+	All logging configuration is handled by java.util.logging.
 
 * **loggerFile** = String
 
-	File name output of the Logger. If set, the Logger will use a <code>java.util.logging.FileHandler</code>
-	to write to a specified file. If the parameter is not set or the file can’t be created the
-	<code>java.util.logging.ConsoleHandler</code> will be used instead. This parameter should be use
-	together with loggerLevel.
+	This property is no longer used by the driver and will be ignored.
+	All logging configuration is handled by java.util.logging.
  
 * **allowEncodingChanges** = boolean
 
@@ -307,7 +303,7 @@ Connection conn = DriverManager.getConnection(url);
 	Determine the number of rows fetched in `ResultSet`
 	by one fetch with trip to the database. Limiting the number of rows are fetch with 
 	each trip to the database allow avoids unnecessary memory consumption 
-	and as a consequence `OutOfMemoryException`.
+	and as a consequence `OutOfMemoryError`.
 
 	The default is zero, meaning that in `ResultSet` will be fetch all rows at once. 
 	Negative number is not available.
@@ -341,6 +337,10 @@ Connection conn = DriverManager.getConnection(url);
 * **tcpKeepAlive** = boolean
 
 	Enable or disable TCP keep-alive probe. The default is `false`.
+
+* **tcpNoDelay** = boolean
+
+  Enable or disable TCP nodelay. The default is `true`.
 
 * **unknownLength** = int
 
@@ -389,13 +389,14 @@ Connection conn = DriverManager.getConnection(url);
 
 * **gssEncMode** = String
 
-    PostgreSQL 12 and later now allow GSSAPI encrypted connections.  This parameter controls whether
-    to enforce using GSSAPI encryption or not. The options are `disable`, `allow`, `prefer` and
-    `require`.  `disable` is obvious and disables any attempt to connect using GSS encrypted mode;
-    `allow` will connect initially in plain text then if the server requests it will switch to
-    encrypted mode; `prefer` will attempt to connect in encrypted mode and fall back to plain text
-    if it fails to acquire an encrypted connection; `require` attempts to connect in encrypted mode
-    and will fail to connect if that is not possible.
+    PostgreSQL 12 and later now allow GSSAPI encrypted connections. This parameter controls whether to
+    enforce using GSSAPI encryption or not. The options are `disable`, `allow`, `prefer` and `require`
+    `disable` is obvious and disables any attempt to connect using GSS encrypted mode
+    `allow` will connect in plain text then if the server requests it will switch to encrypted mode
+    `prefer` will attempt connect in encrypted mode and fall back to plain text if it fails to acquire
+    an encrypted connection
+    `require` attempts to connect in encrypted mode and will fail to connect if that is not possible.
+    The default is `allow`.
 
 * **gsslib** = String
 
@@ -474,10 +475,12 @@ Connection conn = DriverManager.getConnection(url);
 * **targetServerType** = String
 
 	Allows opening connections to only servers with required state, 
-	the allowed values are any, primary, master, slave, secondary, preferSlave and preferSecondary. 
+	the allowed values are any, primary, master, slave, secondary, preferSlave, preferSecondary and preferPrimary. 
 	The primary/secondary distinction is currently done by observing if the server allows writes. 
 	The value preferSecondary tries to connect to secondary if any are available, 
 	otherwise allows falls back to connecting also to primary.
+	The value preferPrimary tries to connect to primary if it is available, 
+	otherwise allows falls back to connecting to secondaries available.
 	- *N.B.* the words master and slave are being deprecated. We will silently accept them, but primary
 	and secondary are encouraged.
 
@@ -574,28 +577,35 @@ Connection conn = DriverManager.getConnection(url);
 
 	By default this is set to true, server error details are propagated. This may include sensitive details such as query parameters.
 
+* **quoteReturningIdentifiers** == boolean
+
+  Quote returning columns.
+  There are some ORM's that quote everything, including returning columns
+  If we quote them, then we end up sending ""colname"" to the backend instead of "colname"
+  which will not be found.
+
+* **authenticationPluginClassName** == String
+
+  Fully qualified class name of the class implementing the AuthenticationPlugin interface.
+  If this is null, the password value in the connection properties will be used.
+
 <a name="unix sockets"></a>
 ## Unix sockets
 
-Aleksander Blomskøld has forked junixsocket and added a [Unix SocketFactory](https://github.com/fiken/junixsocket/blob/master/junixsocket-common/src/main/java/org/newsclub/net/unix/socketfactory/PostgresqlAFUNIXSocketFactory.java) that works with the driver.
-His code can be found at [https://github.com/fiken/junixsocket](https://github.com/fiken/junixsocket).
+By adding junixsocket you can obtain a socket factory that works with the driver.
+Code can be found at [https://github.com/kohlschutter/junixsocket](https://github.com/kohlschutter/junixsocket). and instructions at [https://kohlschutter.github.io/junixsocket/dependency.html](https://kohlschutter.github.io/junixsocket/dependency.html)
 
 Dependencies for junixsocket are :
 
 ```xml
 <dependency>
-  <groupId>no.fiken.oss.junixsocket</groupId>
-  <artifactId>junixsocket-common</artifactId>
-  <version>1.0.2</version>
-</dependency>
-<dependency>
-  <groupId>no.fiken.oss.junixsocket</groupId>
-  <artifactId>junixsocket-native-common</artifactId>
-  <version>1.0.2</version>
+  <groupId>com.kohlschutter.junixsocket</groupId>
+  <artifactId>junixsocket-core</artifactId>
+  <version>2.3.3</version>
 </dependency>
 ```
 Simply add
-`?socketFactory=org.newsclub.net.unix.socketfactory.PostgresqlAFUNIXSocketFactory&socketFactoryArg=[path-to-the-unix-socket]`
+`?socketFactory=org.newsclub.net.unix.AFUNIXSocketFactory$FactoryArg&socketFactoryArg=[path-to-the-unix-socket]`
 to the connection URL.
 
 For many distros the default path is /var/run/postgresql/.s.PGSQL.5432

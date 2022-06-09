@@ -30,6 +30,7 @@ public class PGInterval extends PGobject implements Serializable, Cloneable {
   private int minutes;
   private int wholeSeconds;
   private int microSeconds;
+  private boolean isNull;
 
   /**
    * required by the driver.
@@ -97,13 +98,12 @@ public class PGInterval extends PGobject implements Serializable, Cloneable {
       for (int i = 0; i < timeValue.length(); i++) {
         int lookAhead = lookAhead(timeValue, i, "HMS");
         if (lookAhead > 0) {
-          number = Integer.parseInt(timeValue.substring(i, lookAhead));
           if (timeValue.charAt(lookAhead) == 'H') {
-            setHours(number);
+            setHours(Integer.parseInt(timeValue.substring(i, lookAhead)));
           } else if (timeValue.charAt(lookAhead) == 'M') {
-            setMinutes(number);
+            setMinutes(Integer.parseInt(timeValue.substring(i, lookAhead)));
           } else if (timeValue.charAt(lookAhead) == 'S') {
-            setSeconds(number);
+            setSeconds(Double.parseDouble(timeValue.substring(i, lookAhead)));
           }
           i = lookAhead;
         }
@@ -135,7 +135,13 @@ public class PGInterval extends PGobject implements Serializable, Cloneable {
    * @param value String representated interval (e.g. '3 years 2 mons')
    * @throws SQLException Is thrown if the string representation has an unknown format
    */
-  public void setValue(String value) throws SQLException {
+  public void setValue(@Nullable String value) throws SQLException {
+    isNull = value == null;
+    if (value == null) {
+      setValue(0, 0, 0, 0, 0, 0);
+      isNull = true;
+      return;
+    }
     final boolean PostgresFormat = !value.startsWith("@");
     if (value.startsWith("P")) {
       parseISO8601Format(value);
@@ -247,7 +253,10 @@ public class PGInterval extends PGobject implements Serializable, Cloneable {
    *
    * @return String represented interval
    */
-  public String getValue() {
+  public @Nullable String getValue() {
+    if (isNull) {
+      return null;
+    }
     DecimalFormat df = (DecimalFormat) NumberFormat.getInstance(Locale.US);
     df.applyPattern("0.0#####");
 
@@ -278,6 +287,7 @@ public class PGInterval extends PGobject implements Serializable, Cloneable {
    * @param years years to set
    */
   public void setYears(int years) {
+    isNull = false;
     this.years = years;
   }
 
@@ -296,6 +306,7 @@ public class PGInterval extends PGobject implements Serializable, Cloneable {
    * @param months months to set
    */
   public void setMonths(int months) {
+    isNull = false;
     this.months = months;
   }
 
@@ -314,6 +325,7 @@ public class PGInterval extends PGobject implements Serializable, Cloneable {
    * @param days days to set
    */
   public void setDays(int days) {
+    isNull = false;
     this.days = days;
   }
 
@@ -332,6 +344,7 @@ public class PGInterval extends PGobject implements Serializable, Cloneable {
    * @param hours hours to set
    */
   public void setHours(int hours) {
+    isNull = false;
     this.hours = hours;
   }
 
@@ -350,6 +363,7 @@ public class PGInterval extends PGobject implements Serializable, Cloneable {
    * @param minutes minutes to set
    */
   public void setMinutes(int minutes) {
+    isNull = false;
     this.minutes = minutes;
   }
 
@@ -376,6 +390,7 @@ public class PGInterval extends PGobject implements Serializable, Cloneable {
    * @param seconds seconds to set
    */
   public void setSeconds(double seconds) {
+    isNull = false;
     wholeSeconds = (int) seconds;
     microSeconds = (int) Math.round((seconds - wholeSeconds) * MICROS_IN_SECOND);
   }
@@ -386,6 +401,9 @@ public class PGInterval extends PGobject implements Serializable, Cloneable {
    * @param cal Calendar instance to add to
    */
   public void add(Calendar cal) {
+    if (isNull) {
+      return;
+    }
 
     final int milliseconds = (microSeconds + ((microSeconds < 0) ? -500 : 500)) / 1000 + wholeSeconds * 1000;
 
@@ -403,6 +421,9 @@ public class PGInterval extends PGobject implements Serializable, Cloneable {
    * @param date Date instance to add to
    */
   public void add(Date date) {
+    if (isNull) {
+      return;
+    }
     final Calendar cal = Calendar.getInstance();
     cal.setTime(date);
     add(cal);
@@ -416,6 +437,9 @@ public class PGInterval extends PGobject implements Serializable, Cloneable {
    * @param interval intval to add
    */
   public void add(PGInterval interval) {
+    if (isNull || interval.isNull) {
+      return;
+    }
     interval.setYears(interval.getYears() + getYears());
     interval.setMonths(interval.getMonths() + getMonths());
     interval.setDays(interval.getDays() + getDays());
@@ -433,6 +457,9 @@ public class PGInterval extends PGobject implements Serializable, Cloneable {
    * @param factor scale factor
    */
   public void scale(int factor) {
+    if (isNull) {
+      return;
+    }
     setYears(factor * getYears());
     setMonths(factor * getMonths());
     setDays(factor * getDays());
@@ -483,6 +510,11 @@ public class PGInterval extends PGobject implements Serializable, Cloneable {
     }
 
     final PGInterval pgi = (PGInterval) obj;
+    if (isNull) {
+      return pgi.isNull;
+    } else if (pgi.isNull) {
+      return false;
+    }
 
     return pgi.years == years
         && pgi.months == months
@@ -500,6 +532,9 @@ public class PGInterval extends PGobject implements Serializable, Cloneable {
    */
   @Override
   public int hashCode() {
+    if (isNull) {
+      return 0;
+    }
     return (((((((8 * 31 + microSeconds) * 31 + wholeSeconds) * 31 + minutes) * 31 + hours) * 31
         + days) * 31 + months) * 31 + years) * 31;
   }

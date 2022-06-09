@@ -11,6 +11,7 @@ import org.postgresql.util.PSQLState;
 
 import java.lang.reflect.Field;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -72,6 +73,7 @@ public class Oid {
   public static final int POINT = 600;
   public static final int POINT_ARRAY = 1017;
   public static final int BOX = 603;
+  public static final int JSONB = 3802;
   public static final int JSONB_ARRAY = 3807;
   public static final int JSON = 114;
   public static final int JSON_ARRAY = 199;
@@ -96,7 +98,7 @@ public class Oid {
     for (Field field : Oid.class.getFields()) {
       try {
         int oid = field.getInt(null);
-        String name = field.getName().toUpperCase();
+        String name = field.getName().toUpperCase(Locale.ROOT);
         OID_TO_NAME.put(oid, name);
         NAME_TO_OID.put(name, oid);
       } catch (IllegalAccessException e) {
@@ -124,7 +126,7 @@ public class Oid {
     if (oid.length() > 0 && !Character.isDigit(oid.charAt(0))) {
       Integer id = NAME_TO_OID.get(oid);
       if (id == null) {
-        id = NAME_TO_OID.get(oid.toUpperCase());
+        id = NAME_TO_OID.get(oid.toUpperCase(Locale.ROOT));
       }
       if (id != null) {
         return id;

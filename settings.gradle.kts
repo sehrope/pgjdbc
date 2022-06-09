@@ -32,7 +32,10 @@ pluginManagement {
 }
 
 plugins {
-    `gradle-enterprise`
+    // TODO: remove explicit version once upgrade to Gradle 7.4+
+    // The version is explicitly specified to support building with tr_TR locale
+    // See https://github.com/gradle/gradle/issues/17361
+    id("com.gradle.enterprise") version "3.10.1"
     id("com.github.burrunan.s3-build-cache")
 }
 
@@ -81,8 +84,8 @@ buildCache {
     if (property("s3.build.cache")?.ifBlank { "true" }?.toBoolean() == true) {
         val pushAllowed = property("s3.build.cache.push")?.ifBlank { "true" }?.toBoolean() ?: true
         remote<com.github.burrunan.s3cache.AwsS3BuildCache> {
-            region = "us-east-2"
-            bucket = "pgjdbc-gradle-cache"
+            region = "us-east-1"
+            bucket = "pgjdbc-build-cache"
             isPush = isCiServer && pushAllowed && !awsAccessKeyId.isNullOrBlank()
         }
     }
