@@ -1,6 +1,7 @@
 // The script generates a random subset of valid jdk, os, timezone, and other axes.
 // You can preview the results by running "node matrix.js"
 // See https://github.com/vlsi/github-actions-random-matrix
+const { RNG } = require('./rng');
 let {MatrixBuilder} = require('./matrix_builder');
 const matrix = new MatrixBuilder();
 matrix.addAxis({
@@ -252,7 +253,7 @@ include.forEach(v => {
   // Gradle does not work in tr_TR locale, so pass locale to test only: https://github.com/gradle/gradle/issues/17361
   jvmArgs.push(`-Duser.country=${v.locale.country}`);
   jvmArgs.push(`-Duser.language=${v.locale.language}`);
-  if (v.jit === 'hotspot' && Math.random() > 0.5) {
+  if (v.jit === 'hotspot' && RNG.random() > 0.5) {
     // The following options randomize instruction selection in JIT compiler
     // so it might reveal missing synchronization in TestNG code
     v.name += ', stress JIT';
