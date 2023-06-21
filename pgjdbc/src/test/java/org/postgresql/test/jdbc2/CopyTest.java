@@ -314,6 +314,19 @@ public class CopyTest {
   }
 
   @Test
+  public void testBigCopyOut() throws SQLException, IOException {
+    int numRows = 2000000;
+    String sql = "COPY (SELECT generate_series(1, " + numRows + ")) TO STDOUT";
+    CopyOut copyOut = copyAPI.copyOut(sql);
+    int count = 0;
+    while (copyOut.readFromCopy() != null) {
+      count++;
+    }
+    assertEquals("Number of rows read should match", count, numRows);
+    assertEquals("COPY operation should no longer be active", false, copyOut.isActive());
+  }
+
+  @Test
   public void testNonCopyOut() throws SQLException, IOException {
     String sql = "SELECT 1";
     try {
