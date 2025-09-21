@@ -25,6 +25,12 @@ jobs:
         run: |
           # Ensure we release from master or release/** branches, ensure version number follows semver
           BRANCH_NAME=${GITHUB_REF##refs/heads/}
+
+          if [[ "${BRANCH_NAME}" == "wip-maven-central-publish-testing" ]]; then
+            # Override for testing
+            exit 0
+          fi
+
           if [[ ! "$BRANCH_NAME" =~ ^(master|release/.+)$ ]]; then
             echo "Error: Release must be created from 'master' or 'release/**' branch. Current branch is '$BRANCH_NAME'"
             exit 1
