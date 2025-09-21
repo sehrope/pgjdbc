@@ -56,7 +56,7 @@ val jacocoReport by tasks.registering(JacocoReport::class) {
 }
 
 allprojects {
-    group = "org.postgresql"
+    group = "io.github.sehrope.org.postgresql"
     version = buildVersion
 }
 
