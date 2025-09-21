@@ -14,6 +14,6 @@ jobs:
       RELEASE_PGP_PRIVATE_KEY: ${{ secrets.RELEASE_PGP_PRIVATE_KEY }}
       RELEASE_PGP_PASSPHRASE: ${{ secrets.RELEASE_PGP_PASSPHRASE }}
     with:
-      key-name: pgjdbc releases
-      key-email: pgjdbc-releases@jdbc.postgresql.org
+      key-name: pgjdbc testing
+      key-email: pgjdbc-testing@example.com
       key-lifetime: 1825
