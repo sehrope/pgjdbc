@@ -170,6 +170,26 @@ public enum PGProperty {
       new String[]{"true", "false"}),
 
   /**
+   * Factory class used to produce the {@link java.util.concurrent.ThreadFactory} that spawns the
+   * helper thread used to enforce {@code loginTimeout} during connection establishment. Value must
+   * be the name of a class implementing {@link org.postgresql.util.PGThreadFactoryFactory}. When
+   * unset, the driver uses a daemon thread named
+   * {@code "PostgreSQL JDBC driver connection thread"}.
+   */
+  CONNECT_THREAD_FACTORY_FACTORY(
+      "connectThreadFactoryFactory",
+      "",
+      "Factory class to instantiate the ThreadFactory used for connection attempts with loginTimeout"),
+
+  /**
+   * The String argument to give to the constructor of the connectThreadFactoryFactory class.
+   */
+  CONNECT_THREAD_FACTORY_FACTORY_ARG(
+      "connectThreadFactoryFactoryArg",
+      null,
+      "Argument forwarded to constructor of connectThreadFactoryFactory class."),
+
+  /**
    * The timeout value used for socket connect operations. If connecting to the server takes longer
    * than this value, the connection is broken.
    *
