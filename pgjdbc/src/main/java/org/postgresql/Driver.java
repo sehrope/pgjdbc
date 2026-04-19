@@ -11,10 +11,13 @@ import org.postgresql.jdbc.PgConnection;
 import org.postgresql.jdbc.ResourceLock;
 import org.postgresql.jdbcurlresolver.PgPassParser;
 import org.postgresql.jdbcurlresolver.PgServiceConfParser;
+import org.postgresql.util.DefaultPGThreadFactoryFactory;
 import org.postgresql.util.DriverInfo;
 import org.postgresql.util.GT;
 import org.postgresql.util.HostSpec;
+import org.postgresql.util.ObjectFactory;
 import org.postgresql.util.PGPropertyUtil;
+import org.postgresql.util.PGThreadFactoryFactory;
 import org.postgresql.util.PSQLException;
 import org.postgresql.util.PSQLState;
 import org.postgresql.util.SharedTimer;
@@ -38,6 +41,7 @@ import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.logging.Level;
@@ -299,8 +303,13 @@ public class Driver implements java.sql.Driver {
       }
 
       ConnectThread ct = new ConnectThread(url, props);
-      Thread thread = new Thread(ct, "PostgreSQL JDBC driver connection thread");
-      thread.setDaemon(true); // Don't prevent the VM from shutting down
+      ThreadFactory threadFactory = resolveConnectThreadFactory(props).newThreadFactory();
+      Thread thread = threadFactory.newThread(ct);
+      if (thread == null) {
+        throw new PSQLException(
+            GT.tr("ThreadFactory returned a null Thread for the connection attempt."),
+            PSQLState.UNEXPECTED_ERROR);
+      }
       thread.start();
       return ct.getResult(timeout);
     } catch (PSQLException ex1) {
@@ -710,6 +719,22 @@ public class Driver implements java.sql.Driver {
       hostSpecs[i] = new HostSpec(hosts[i], Integer.parseInt(ports[i]), localSocketAddress);
     }
     return hostSpecs;
+  }
+
+  private static PGThreadFactoryFactory resolveConnectThreadFactory(Properties props)
+      throws PSQLException {
+    String className = PGProperty.CONNECT_THREAD_FACTORY_FACTORY.getOrDefault(props);
+    if (className == null || className.isEmpty()) {
+      return DefaultPGThreadFactoryFactory.INSTANCE;
+    }
+    try {
+      return ObjectFactory.instantiate(PGThreadFactoryFactory.class, className, props, true,
+          PGProperty.CONNECT_THREAD_FACTORY_FACTORY_ARG.getOrDefault(props));
+    } catch (Exception ex) {
+      throw new PSQLException(
+          GT.tr("Could not instantiate connectThreadFactoryFactory: {0}", className),
+          PSQLState.INVALID_PARAMETER_VALUE, ex);
+    }
   }
 
   /**
