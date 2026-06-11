@@ -679,7 +679,17 @@ public class PGStream implements Closeable, Flushable {
   public void skip(int size) throws IOException {
     long s = 0;
     while (s < size) {
-      s += pgInput.skip(size - s);
+      long skipped = pgInput.skip(size - s);
+      if (skipped == 0) {
+        // skip() returns 0 at end of stream (and gives no way to distinguish it from a
+        // short skip), so fall back to a blocking read to detect EOF
+        if (pgInput.read() < 0) {
+          throw new EOFException();
+        }
+        s++;
+      } else {
+        s += skipped;
+      }
     }
   }
 
