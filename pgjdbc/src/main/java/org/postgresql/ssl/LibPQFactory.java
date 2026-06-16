@@ -153,12 +153,13 @@ public class LibPQFactory extends WrappedFactory {
         // Load the server certificate
 
         TrustManagerFactory tmf = TrustManagerFactory.getInstance("PKIX");
+        String keyStoreDefaultType = KeyStore.getDefaultType();
         KeyStore ks;
         try {
-          ks = KeyStore.getInstance("jks");
+          ks = KeyStore.getInstance(keyStoreDefaultType);
         } catch (KeyStoreException e) {
           // this should never happen
-          throw new NoSuchAlgorithmException("jks KeyStore not available");
+          throw new NoSuchAlgorithmException("KeyStore not available: " + keyStoreDefaultType);
         }
         String sslrootcertfile = PGProperty.SSL_ROOT_CERT.getOrDefault(info);
         if (sslrootcertfile == null) { // Fall back to default

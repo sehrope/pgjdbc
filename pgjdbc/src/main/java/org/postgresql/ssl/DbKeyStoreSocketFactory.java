@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
+import java.security.KeyStoreException;
 
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
@@ -27,12 +28,15 @@ public abstract class DbKeyStoreSocketFactory extends WrappedFactory {
   public DbKeyStoreSocketFactory() throws DbKeyStoreSocketException {
     KeyStore keys;
     char[] password;
+    String keyStoreDefaultType = KeyStore.getDefaultType();
     try {
-      keys = KeyStore.getInstance("JKS");
+      keys = KeyStore.getInstance(keyStoreDefaultType);
       // Call of the sub-class method during object initialization is generally a bad idea
       // Currently we suppress it with method.invocation
       password = getKeyStorePassword();
       keys.load(getKeyStoreStream(), password);
+    } catch (KeyStoreException e) {
+      throw new DbKeyStoreSocketException("KeyStore not available: " + keyStoreDefaultType);
     } catch (GeneralSecurityException gse) {
       throw new DbKeyStoreSocketException("Failed to load keystore: " + gse.getMessage());
     } catch (FileNotFoundException fnfe) {
