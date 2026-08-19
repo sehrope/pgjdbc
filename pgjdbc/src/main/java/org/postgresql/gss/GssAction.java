@@ -168,8 +168,10 @@ class GssAction implements PrivilegedAction<@Nullable Exception>, Callable<@Null
       // Error
       switch (response) {
         case PgMessageType.ERROR_RESPONSE:
+          // Read before anything is authenticated, so this cap is what bounds a hostile
+          // server's pre-authentication allocation.
           int elen = pgStream.receiveMessageLength("ErrorResponse", 5,
-              PGStream.MAX_BUFFERED_MESSAGE_LENGTH);
+              PGStream.MAX_PRE_AUTH_MESSAGE_LENGTH);
           ServerErrorMessage errorMsg
               = new ServerErrorMessage(pgStream.receiveErrorString(elen - 4));
 
