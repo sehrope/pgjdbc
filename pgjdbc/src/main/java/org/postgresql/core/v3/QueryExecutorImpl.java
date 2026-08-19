@@ -1548,6 +1548,12 @@ public class QueryExecutorImpl extends QueryExecutorBase {
 
             LOGGER.log(Level.FINEST, " <=BE CopyData");
 
+            // CopyData deliberately keeps the MaxAllocSize cap. The protocol gives this
+            // message no smaller bound. The backend builds one per COPY row or per logical
+            // replication message, and either can legitimately approach that size, so any
+            // lower cap would be arbitrary. A desync inside a COPY can therefore still cost
+            // one large allocation. Capping it with maxResultBuffer instead would change what
+            // that documented result set property does.
             len = pgStream.receiveMessageLength("CopyData", 4, PGStream.MAX_MESSAGE_LENGTH) - 4;
 
             byte[] buf = pgStream.receive(len);
