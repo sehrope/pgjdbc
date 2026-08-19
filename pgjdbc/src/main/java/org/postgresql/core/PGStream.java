@@ -73,6 +73,22 @@ public class PGStream implements Closeable, Flushable {
   private VisibleBufferedInputStream pgInput;
   private PgBufferedOutputStream pgOutput;
   private @Nullable ProtocolVersion protocolVersion;
+  private boolean broken;
+
+  /**
+   * Builds the callback handed to the buffered and GSS streams so their own refusals mark this
+   * stream broken. A method rather than a field, because an anonymous class in a field
+   * initializer captures the enclosing instance before it is initialized, which the Checker
+   * Framework rejects for the setBroken call.
+   */
+  private Runnable markBroken() {
+    return new Runnable() {
+      @Override
+      public void run() {
+        setBroken();
+      }
+    };
+  }
 
   private boolean finishedAuthenticationRequests = false;
 
@@ -92,7 +108,8 @@ public class PGStream implements Closeable, Flushable {
 
   public void setSecContext(GSSContext secContext) throws GSSException {
     MessageProp messageProp =  new MessageProp(0, true);
-    pgInput = new VisibleBufferedInputStream(new GSSInputStream(pgInput, secContext, messageProp ), 8192);
+    pgInput = new VisibleBufferedInputStream(
+        new GSSInputStream(pgInput, secContext, messageProp, markBroken()), 8192, markBroken());
     // See https://www.postgresql.org/docs/current/protocol-flow.html#PROTOCOL-FLOW-GSSAPI
     // Note that the server will only accept encrypted packets from the client which are less than
     // 16kB; gss_wrap_size_limit() should be used by the client to determine the size of
@@ -321,7 +338,7 @@ public class PGStream implements Closeable, Flushable {
     // really need to.
     connection.setTcpNoDelay(true);
 
-    pgInput = new VisibleBufferedInputStream(connection.getInputStream(), 8192);
+    pgInput = new VisibleBufferedInputStream(connection.getInputStream(), 8192, markBroken());
     int sendBufferSize = Math.min(maxSendBufferSize, Math.max(8192, socket.getSendBufferSize()));
     pgOutput = new PgBufferedOutputStream(connection.getOutputStream(), sendBufferSize);
 
@@ -528,7 +545,7 @@ public class PGStream implements Closeable, Flushable {
       throws IOException {
     int length = receiveInteger4();
     if (length < minLength || length > maxLength) {
-      throw new IOException(GT.tr(
+      throw protocolViolation(GT.tr(
           "Backend declared a {0} message length of {1} bytes, expected {2} to {3} bytes.",
           packetName, String.valueOf(length), String.valueOf(minLength),
           String.valueOf(maxLength)));
@@ -655,7 +672,7 @@ public class PGStream implements Closeable, Flushable {
     // Cannot overflow, nf is an unsigned int2.
     int dataToReadSize = messageSize - 4 - 2 - 4 * nf;
     if (dataToReadSize < 0) {
-      throw new IOException(GT.tr("DataRow of {0} bytes cannot hold {1} column lengths.",
+      throw protocolViolation(GT.tr("DataRow of {0} bytes cannot hold {1} column lengths.",
           String.valueOf(messageSize), String.valueOf(nf)));
     }
     setMaxRowSizeBytes(dataToReadSize);
@@ -670,7 +687,7 @@ public class PGStream implements Closeable, Flushable {
       if (size != -1) {
         // -1 is the only negative with a meaning, and no column exceeds what is left.
         if (size < 0 || size > remaining) {
-          throw new IOException(GT.tr("DataRow column of {0} bytes does not fit in the {1} bytes"
+          throw protocolViolation(GT.tr("DataRow column of {0} bytes does not fit in the {1} bytes"
               + " left of the message.", String.valueOf(size), String.valueOf(remaining)));
         }
         remaining -= size;
@@ -688,7 +705,7 @@ public class PGStream implements Closeable, Flushable {
       throw oom;
     }
     if (remaining != 0) {
-      throw new IOException(GT.tr("DataRow of {0} bytes has {1} unread bytes.",
+      throw protocolViolation(GT.tr("DataRow of {0} bytes has {1} unread bytes.",
           String.valueOf(messageSize), String.valueOf(remaining)));
     }
 
@@ -808,7 +825,11 @@ public class PGStream implements Closeable, Flushable {
    */
   @Override
   public void close() throws IOException {
-    pgOutput.close();
+    if (!broken) {
+      // Flushing a desynced stream pushes the tail of a half written request at a peer that
+      // is already discarding it.
+      pgOutput.close();
+    }
     pgInput.close();
     connection.close();
   }
@@ -907,7 +928,55 @@ public class PGStream implements Closeable, Flushable {
     }
   }
 
+  /**
+   * Whether a length or a count off the wire has been refused on this stream.
+   *
+   * @return true once the stream is known to be out of step with the protocol
+   */
+  public boolean isBroken() {
+    return broken;
+  }
+
+  /**
+   * Records that the stream is no longer aligned with the protocol and drops the socket.
+   * Nothing after a refused length can be interpreted, so the connection must not be handed to
+   * another caller: {@link #isClosed()} reports it closed from here on, which is what a pool
+   * testing on borrow looks at.
+   *
+   * <p>The socket is closed here rather than through {@link #close()}, which would flush
+   * {@code pgOutput} at a peer that is already discarding it. {@code SO_LINGER 0} makes the close
+   * an immediate reset. If it fails, the descriptor is released on the regular close path.</p>
+   */
+  public void setBroken() {
+    if (broken) {
+      return;
+    }
+    broken = true;
+    try {
+      connection.setSoLinger(true, 0);
+    } catch (Exception e) {
+      // A close without SO_LINGER 0 is graceful rather than immediate, which is acceptable.
+    }
+    try {
+      connection.close();
+    } catch (IOException e) {
+      // QueryExecutorCloseAction closes the socket again on the regular close path.
+    }
+  }
+
+  /**
+   * Marks the stream broken and builds the exception for a refused length or count. Every
+   * refusal goes through here, so none of them leaves a connection that looks reusable.
+   *
+   * @param message the already translated message
+   * @return the exception to throw
+   */
+  public IOException protocolViolation(String message) {
+    setBroken();
+    return new IOException(message);
+  }
+
   public boolean isClosed() {
-    return connection.isClosed();
+    return broken || connection.isClosed();
   }
 }
