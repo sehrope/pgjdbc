@@ -309,6 +309,18 @@ public class ConnectionFactoryImpl extends ConnectionFactory {
       doAuthentication(newStream, hostSpec.getHost(), user, info);
 
       return newStream;
+    } catch (IOException e) {
+      // A refused length is a protocol violation, not a transport failure. Saying so lets the
+      // caller tell the two apart, and keeps it out of the sslMode=allow/prefer retry below.
+      // That retry exists for a peer that dropped the connection, not for one that violated
+      // the protocol.
+      boolean broken = newStream.isBroken();
+      closeStream(newStream, e);
+      if (broken) {
+        throw new PSQLException(GT.tr("Protocol error.  Session setup failed."),
+            PSQLState.PROTOCOL_VIOLATION, e);
+      }
+      throw e;
     } catch (Exception e) {
       closeStream(newStream, e);
       throw e;
@@ -812,6 +824,7 @@ public class ConnectionFactoryImpl extends ConnectionFactory {
             int numOptionsNotRecognized = pgStream.receiveInteger4();
             // A negative count skips the loop and leaves the declared body unread.
             if (numOptionsNotRecognized < 0 || numOptionsNotRecognized > negotiateLen - 12) {
+              pgStream.setBroken();
               throw new PSQLException(GT.tr(
                   "Backend reported {0} unrecognized options in a message of {1} bytes.",
                   String.valueOf(numOptionsNotRecognized), String.valueOf(negotiateLen)),
@@ -819,6 +832,7 @@ public class ConnectionFactoryImpl extends ConnectionFactory {
             }
             // With no options the message is exactly its fixed part.
             if (numOptionsNotRecognized == 0 && negotiateLen != 12) {
+              pgStream.setBroken();
               throw new PSQLException(GT.tr(
                   "Backend sent a {0} byte NegotiateProtocolVersion with no unrecognized options.",
                   String.valueOf(negotiateLen)), PSQLState.PROTOCOL_VIOLATION);
@@ -1074,6 +1088,7 @@ public class ConnectionFactoryImpl extends ConnectionFactory {
             break;
 
           default:
+            pgStream.setBroken();
             throw new PSQLException(GT.tr("Protocol error.  Session setup failed."),
                 PSQLState.PROTOCOL_VIOLATION);
         }
