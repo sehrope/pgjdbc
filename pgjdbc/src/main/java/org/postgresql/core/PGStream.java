@@ -76,6 +76,12 @@ public class PGStream implements Closeable, Flushable {
   private boolean broken;
 
   /**
+   * Stream position at which the message being read ends, or -1 when no declared length is
+   * outstanding. Set by {@link #receiveMessageLength} and checked by {@link #receiveMessageType}.
+   */
+  private long messageEnd = -1;
+
+  /**
    * Builds the callback handed to the buffered and GSS streams so their own refusals mark this
    * stream broken. A method rather than a field, because an anonymous class in a field
    * initializer captures the enclosing instance before it is initialized, which the Checker
@@ -108,6 +114,9 @@ public class PGStream implements Closeable, Flushable {
 
   public void setSecContext(GSSContext secContext) throws GSSException {
     MessageProp messageProp =  new MessageProp(0, true);
+    // The replacement stream starts its own byte count. Nothing is outstanding, because the
+    // handshake is not message framed.
+    messageEnd = -1;
     pgInput = new VisibleBufferedInputStream(
         new GSSInputStream(pgInput, secContext, messageProp, markBroken()), 8192, markBroken());
     // See https://www.postgresql.org/docs/current/protocol-flow.html#PROTOCOL-FLOW-GSSAPI
@@ -332,6 +341,8 @@ public class PGStream implements Closeable, Flushable {
         + " excessive changeSocket calls";
 
     this.connection = socket;
+    // The replacement stream starts its own byte count.
+    messageEnd = -1;
 
     // Submitted by Jason Venner <jason@idiom.com>. Disable Nagle
     // as we are selective about flushing output only when we
@@ -550,7 +561,37 @@ public class PGStream implements Closeable, Flushable {
           packetName, String.valueOf(length), String.valueOf(minLength),
           String.valueOf(maxLength)));
     }
+    // The length counts its own four bytes, which have just been read.
+    messageEnd = pgInput.getPosition() + length - 4;
     return length;
+  }
+
+  /**
+   * Receives the type byte of the next backend message, having first checked that the previous
+   * message was consumed exactly. A reader that sizes a buffer from a raw
+   * {@link #receiveInteger4()}, or that stops short of its declared length, fails here rather
+   * than by misreading what follows.
+   *
+   * <p>Only messages whose length was read through {@link #receiveMessageLength} are checked. The
+   * parts of the stream that are not message framed, namely the single byte replies to the SSL
+   * and GSS encryption requests and the raw token exchange of the GSS handshake, are read with
+   * {@link #receiveChar()} and are unaffected.</p>
+   *
+   * @return the message type byte
+   * @throws IOException if the previous message was not consumed exactly, or on an I/O error
+   */
+  public int receiveMessageType() throws IOException {
+    long end = messageEnd;
+    if (end >= 0) {
+      messageEnd = -1;
+      long position = pgInput.getPosition();
+      if (position != end) {
+        throw protocolViolation(GT.tr(
+            "The previous backend message declared its end at byte {0} of the stream, but its"
+                + " reader stopped at byte {1}.", String.valueOf(end), String.valueOf(position)));
+      }
+    }
+    return receiveChar();
   }
 
   /**
