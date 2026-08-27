@@ -66,6 +66,15 @@ public class PGStream implements Closeable, Flushable {
   public static final int MAX_BUFFERED_MESSAGE_LENGTH =
       Math.min(MAX_MESSAGE_LENGTH, VisibleBufferedInputStream.MAX_BUFFER_SIZE);
 
+  /**
+   * Cap on the exchanges in each of the three loops that run before authentication finishes.
+   * Those are the authentication loop itself and the two GSS handshakes. Message sizes are
+   * bounded but iteration counts are not, so a server that answers every token with another
+   * keeps the client going indefinitely. Sixty four is an order of magnitude above any real
+   * handshake. The longest is SASL at four.
+   */
+  public static final int MAX_AUTH_ROUND_TRIPS = 64;
+
   private final SocketFactory socketFactory;
   private final HostSpec hostSpec;
   private final int maxSendBufferSize;
