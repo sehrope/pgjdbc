@@ -57,6 +57,11 @@ public class VisibleBufferedInputStream extends InputStream {
   private byte[] buffer;
 
   /**
+   * Size the buffer started at and returns to once an outsized message has been drained.
+   */
+  private final int initialSize;
+
+  /**
    * Current read position in the buffer.
    */
   private int index;
@@ -99,7 +104,8 @@ public class VisibleBufferedInputStream extends InputStream {
    */
   public VisibleBufferedInputStream(InputStream in, int bufferSize, Runnable onProtocolViolation) {
     wrapped = in;
-    buffer = new byte[bufferSize < MINIMUM_READ ? MINIMUM_READ : bufferSize];
+    initialSize = bufferSize < MINIMUM_READ ? MINIMUM_READ : bufferSize;
+    buffer = new byte[initialSize];
     this.onProtocolViolation = onProtocolViolation;
   }
 
@@ -296,6 +302,19 @@ public class VisibleBufferedInputStream extends InputStream {
   }
 
   /**
+   * Returns the buffer to its initial size the moment it is fully drained, so a buffer grown for
+   * one large message does not stay that size for the rest of the connection, including while it
+   * sits idle in a pool. Called from every path that consumes bytes, so nothing is copied.
+   */
+  private void shrinkIfDrained() {
+    if (index == endIndex && buffer.length > initialSize) {
+      buffer = new byte[initialSize];
+      index = 0;
+      endIndex = 0;
+    }
+  }
+
+  /**
    * {@inheritDoc}
    */
   @Override
@@ -327,6 +346,7 @@ public class VisibleBufferedInputStream extends InputStream {
       if (len <= avail) {
         System.arraycopy(buffer, index, to, off, len);
         index += len;
+        shrinkIfDrained();
         return len;
       }
       System.arraycopy(buffer, index, to, off, avail);
@@ -338,6 +358,7 @@ public class VisibleBufferedInputStream extends InputStream {
     // good place to reset index because the buffer is fully drained
     index = 0;
     endIndex = 0;
+    shrinkIfDrained();
 
     // then directly from wrapped stream
     do {
@@ -377,11 +398,13 @@ public class VisibleBufferedInputStream extends InputStream {
       // Cast to int is safe here since the number of available bytes within the buffer
       // always fits within int
       index += (int) n;
+      shrinkIfDrained();
       return n;
     }
     n -= avail;
     index = 0;
     endIndex = 0;
+    shrinkIfDrained();
     return avail + wrapped.skip(n);
   }
 
