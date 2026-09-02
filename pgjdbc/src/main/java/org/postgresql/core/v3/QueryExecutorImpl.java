@@ -3031,10 +3031,14 @@ public class QueryExecutorImpl extends QueryExecutorBase {
     // so, append messages to a string buffer and keep processing
     // check at the bottom to see if we need to throw an exception
 
-    int elen = pgStream.receiveMessageLength("ErrorResponse", 5,
-        PGStream.MAX_BUFFERED_MESSAGE_LENGTH);
+    int elen = pgStream.receiveMessageLength("ErrorResponse", 5, PGStream.MAX_MESSAGE_LENGTH);
 
-    EncodingPredictor.DecodeResult totalMessage = pgStream.receiveErrorString(elen - 4);
+    // A body past the buffer maximum is truncated there and the rest is drained. Whatever fields
+    // lie before the truncation point survive; a later one, such as the failing query text, does
+    // not.
+    int body = Math.min(elen, PGStream.MAX_BUFFERED_MESSAGE_LENGTH) - 4;
+    EncodingPredictor.DecodeResult totalMessage = pgStream.receiveErrorString(body);
+    pgStream.skip(elen - 4 - body);
     ServerErrorMessage errorMsg = new ServerErrorMessage(totalMessage);
 
     if (LOGGER.isLoggable(Level.FINEST)) {
@@ -3051,10 +3055,13 @@ public class QueryExecutorImpl extends QueryExecutorBase {
   }
 
   private SQLWarning receiveNoticeResponse() throws IOException {
-    int nlen = pgStream.receiveMessageLength("NoticeResponse", 5,
-        PGStream.MAX_BUFFERED_MESSAGE_LENGTH);
+    int nlen = pgStream.receiveMessageLength("NoticeResponse", 5, PGStream.MAX_MESSAGE_LENGTH);
 
-    ServerErrorMessage warnMsg = new ServerErrorMessage(pgStream.receiveString(nlen - 4));
+    // Truncated at the buffer maximum, as for ErrorResponse, with the same tolerant decoding so a
+    // multibyte character split by the truncation does not fail the read.
+    int body = Math.min(nlen, PGStream.MAX_BUFFERED_MESSAGE_LENGTH) - 4;
+    ServerErrorMessage warnMsg = new ServerErrorMessage(pgStream.receiveErrorString(body));
+    pgStream.skip(nlen - 4 - body);
 
     if (LOGGER.isLoggable(Level.FINEST)) {
       LOGGER.log(Level.FINEST, " <=BE NoticeResponse({0})", warnMsg.toString());
