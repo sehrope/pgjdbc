@@ -131,10 +131,13 @@ class BackendMessageEnvelopeTest {
     return bytes(cstring(""), int4(0), int2(0), int4(23), int2(4), int4(-1), int2(0));
   }
 
-  private static QueryExecutor executorOf(Script script) throws SQLException, IOException {
-    PGStream stream = new PGStream(new CannedSocketFactory(script.toBytes()),
+  private static PGStream streamOf(Script script) throws IOException {
+    return new PGStream(new CannedSocketFactory(script.toBytes()),
         new HostSpec("localhost", 5432), 0, 8192);
-    return new QueryExecutorImpl(stream, 0, new Properties());
+  }
+
+  private static QueryExecutor executorOf(Script script) throws SQLException, IOException {
+    return new QueryExecutorImpl(streamOf(script), 0, new Properties());
   }
 
   private static class CollectingHandler extends ResultHandlerBase {
@@ -158,9 +161,16 @@ class BackendMessageEnvelopeTest {
    */
   private static @Nullable SQLException runQuery(Script script) throws IOException {
     try {
-      QueryExecutor executor = executorOf(script);
+      return runQuery(executorOf(script), new CollectingHandler());
+    } catch (SQLException e) {
+      return e;
+    }
+  }
+
+  private static @Nullable SQLException runQuery(QueryExecutor executor,
+      CollectingHandler handler) {
+    try {
       Query query = executor.createSimpleQuery("select 1");
-      CollectingHandler handler = new CollectingHandler();
       executor.execute(query, null, handler, 0, 0, QueryExecutor.QUERY_ONESHOT
           | QueryExecutor.QUERY_EXECUTE_AS_SIMPLE | QueryExecutor.QUERY_SUPPRESS_BEGIN);
       return handler.getException();
@@ -305,6 +315,26 @@ class BackendMessageEnvelopeTest {
 
     IOException e = assertThrows(IOException.class, () -> executorOf(script));
     assertTrue(e.getMessage().contains("ReadyForQuery"), e.getMessage());
+  }
+
+  /** A DataRow past maxResultBuffer reports the limit and drops the connection. */
+  @Test
+  void dropsTheConnectionPastMaxResultBuffer() throws Exception {
+    byte[] column = new byte[200];
+    Script script = new Script().startup()
+        .message('T', bytes(int2(1), fieldDescription()))
+        .message('D', bytes(int2(1), int4(column.length), column))
+        .message('C', cstring("SELECT 1"))
+        .readyForQuery();
+
+    PGStream stream = streamOf(script);
+    stream.setMaxResultBuffer("100");
+    QueryExecutor executor = new QueryExecutorImpl(stream, 0, new Properties());
+    SQLException e = runQuery(executor, new CollectingHandler());
+    assertNotNull(e);
+    assertTrue(e.getMessage().contains("maxResultBuffer"), e.getMessage());
+    assertTrue(stream.isBroken());
+    assertTrue(executor.isClosed());
   }
 
   private static Throwable rootCause(Throwable t) {

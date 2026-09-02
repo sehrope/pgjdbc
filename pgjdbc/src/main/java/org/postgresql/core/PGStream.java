@@ -1002,6 +1002,9 @@ public class PGStream implements Closeable, Flushable {
     if (maxResultBuffer != -1) {
       resultBufferByteCount += value;
       if (resultBufferByteCount > maxResultBuffer) {
+        // The row is not read, so the stream is off its message boundary. The connection is
+        // dropped here on purpose rather than refused at the next dispatch.
+        setBroken();
         throw new PSQLException(GT.tr(
           "Result set exceeded maxResultBuffer limit. Received:  {0}; Current limit: {1}",
           String.valueOf(resultBufferByteCount), String.valueOf(maxResultBuffer)), PSQLState.COMMUNICATION_ERROR);
