@@ -34,9 +34,14 @@ public class VisibleBufferedInputStream extends InputStream {
   private static final int STRING_SCAN_SPAN = 1024;
 
   /**
-   * The largest the buffer will grow. Only control messages and strings are buffered. Bulk data
+   * The largest the buffer will grow. Only control messages and strings are buffered; bulk data
    * is read straight into its destination. This is therefore also the ceiling on any message body
    * read through {@code PGStream.receiveString}, which buffers it whole.
+   *
+   * <p>This is a driver policy limit, not one the protocol imposes. It bounds what a single
+   * message can make the driver allocate before the message is understood. An ErrorResponse or
+   * NoticeResponse longer than this is truncated to this size and the remainder of its body is
+   * drained, so exceeding it costs a shortened message rather than the connection.</p>
    */
   static final int MAX_BUFFER_SIZE = 32 * 1024 * 1024;
 

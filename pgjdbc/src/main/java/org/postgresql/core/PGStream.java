@@ -53,15 +53,24 @@ public class PGStream implements Closeable, Flushable {
   public static final int MAX_MESSAGE_LENGTH = 0x3FFFFFFF;
 
   /**
-   * Cap for message types that never carry bulk data. libpq's client reader uses 30000 outside
-   * {@code VALID_LONG_MESSAGE_TYPE}, and 2000 for {@code 'R'} and {@code 'v'} during setup.
+   * Cap for message types that never carry bulk data: CommandComplete, AuthenticationRequest,
+   * AuthenticationGSSContinue, BackendKeyData, NegotiateProtocolVersion and CopyDone. The value
+   * matches PostgreSQL's {@code MAX_STARTUP_PACKET_LENGTH}, the 10000 byte ceiling the backend
+   * puts on a startup packet, reused here as a bound for a short control message. It sits within
+   * what libpq accepts, which is 2000 bytes for {@code 'R'} and {@code 'v'} during setup and
+   * 30000 for any message outside {@code VALID_LONG_MESSAGE_TYPE} after it.
    */
   public static final int MAX_SMALL_MESSAGE_LENGTH = 10000;
 
   /**
-   * Cap for message types whose body is buffered whole by {@link #receiveString(int)} or
+   * Largest body buffered whole by {@link #receiveString(int)} or
    * {@link #receiveErrorString(int)}, where the buffer maximum is the real limit. DataRow and
    * CopyData read straight into their destination instead.
+   *
+   * <p>ErrorResponse and NoticeResponse accept any length, buffer this much of the body and drain
+   * the rest, so a long one is truncated rather than refused. ParameterStatus and
+   * NotificationResponse are refused above this cap. A NOTIFY payload is at most 8000 bytes, and
+   * libpq itself drops the connection on a ParameterStatus above 30000 bytes.</p>
    *
    * <p>The body is four bytes shorter than the message, so a message at exactly this cap still
    * fits the buffer maximum.</p>
