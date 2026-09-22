@@ -117,6 +117,40 @@ jobs:
           name: pgjdbc-heapdump-source-distribution
           path: pgjdbc/build/distributions/postgresql-1.0-jdbc-src/target/surefire-reports/*.hprof
 
+  osgi-test:
+    # The OSGi tests check the driver bundle inside a Pax Exam container. Nothing they cover
+    # depends on the server version, query mode or Java version of the build-test matrix, so
+    # they run once here rather than once per matrix job.
+    name: OSGi tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          fetch-depth: 50
+      - name: Start PostgreSQL
+        working-directory: docker/postgres-server
+        run: docker compose up -d --wait || { docker compose logs; exit 1; }
+      - name: 'Set up JDK 21'
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: zulu
+          java-version: 21
+      - uses: burrunan/gradle-cache-action@404534c34a2faa40430357a3183522a845b04f3b # v3.0.3
+        name: Run OSGi tests
+        env:
+          S3_BUILD_CACHE_ACCESS_KEY_ID: ${{ secrets.S3_BUILD_CACHE_ACCESS_KEY_ID }}
+          S3_BUILD_CACHE_SECRET_KEY: ${{ secrets.S3_BUILD_CACHE_SECRET_KEY }}
+        with:
+          job-id: osgi-jdk21
+          arguments: --scan --no-parallel --no-daemon :pgjdbc-osgi-test:test
+      - name: Attach heap dump if any
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pgjdbc-heapdump-osgi
+          path: '**/*.hprof'
+          if-no-files-found: ignore
+
   matrix_prep:
     name: Matrix Preparation
     runs-on: ubuntu-latest
@@ -324,7 +358,8 @@ jobs:
       with:
         read-only: false
         job-id: jdk${{ matrix.java_version }}
-        arguments: --scan --no-parallel --no-daemon jandex test ${{ matrix.gss == 'yes' && '-PgssTests' || '' }} ${{ matrix.extraGradleArgs }}
+        # The OSGi tests run once in the osgi-test job above, not in every matrix job
+        arguments: --scan --no-parallel --no-daemon jandex test -x :pgjdbc-osgi-test:test ${{ matrix.gss == 'yes' && '-PgssTests' || '' }} ${{ matrix.extraGradleArgs }}
         properties: |
           includeTestTags=${{ matrix.includeTestTags }}
           testExtraJvmArgs=${{ matrix.testExtraJvmArgs }}
