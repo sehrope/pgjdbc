@@ -38,7 +38,9 @@ jobs:
           .github/workflows/docs.yml .github/workflows/docs-deploy.yml
 
       - name: Build
-        run: hugo --minify
+        env:
+          BASE_URL: ${{ vars.SITE_BASE_URL || 'https://jdbc.postgresql.org/' }}
+        run: hugo --minify --baseURL "${BASE_URL}"
         working-directory: ./docs
 
       - name: Upload artifact

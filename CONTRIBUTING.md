@@ -249,6 +249,8 @@ there.
 
 The workflows read these repository variables:
 
+- `SITE_BASE_URL`, the URL the site is published at. Unset means `https://jdbc.postgresql.org/`. A fork sets it to
+  publish a test copy of the site to another domain.
 - `SITE_AWS_ROLE_ARN`, the IAM role that the workflow assumes through GitHub OIDC.
 - `SITE_AWS_REGION`, the AWS region of that role.
 - `SITE_S3_BUCKET`, the bucket that holds the site.
