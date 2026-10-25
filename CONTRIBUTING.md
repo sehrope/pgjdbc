@@ -231,6 +231,33 @@ The links in it are relative to the site root, so serve the unzipped directory w
 rather than opening the files directly. To see the pages before you open the pull request, run `hugo server` in
 `docs/`.
 
+### Deploying the website
+
+`.github/workflows/docs.yml` builds the site with the Hugo version that it pins and uploads it as the `site`
+artifact of the run. `.github/workflows/docs-deploy.yml` calls it and then deploys the site. Start the deploy on
+`master` after a release, once the jar is on Maven Central:
+
+```sh
+gh workflow run docs-deploy.yml -R pgjdbc/pgjdbc --ref master
+```
+
+The deploy uploads the site to the S3 bucket under a new prefix `site/<branch>/<yyyymmddThhmmssZ>-<commit>/` and
+then sets the CloudFront KeyValueStore key to `<branch>/<yyyymmddThhmmssZ>-<commit>`. The CloudFront function adds
+the `site/` folder in front of the key value. Earlier deploys stay in the bucket. To roll back, set the key to the
+value of an earlier deploy. Only a run on `master` deploys. A run on another branch builds the site and stops
+there.
+
+The workflows read these repository variables:
+
+- `SITE_AWS_ROLE_ARN`, the IAM role that the workflow assumes through GitHub OIDC.
+- `SITE_AWS_REGION`, the AWS region of that role.
+- `SITE_S3_BUCKET`, the bucket that holds the site.
+- `SITE_CLOUDFRONT_KVS_ARN`, the CloudFront KeyValueStore that holds the key.
+- `SITE_CLOUDFRONT_KVS_KEY`, the key whose value names the deploy that CloudFront serves.
+
+CloudFront serves `/download/` and the Javadoc under `/documentation/publicapi/` from outside the `site/` folder,
+so the deploy does not upload them.
+
 ## Dependencies
 
 PgJDBC has optional dependencies on other libraries for some features. These
